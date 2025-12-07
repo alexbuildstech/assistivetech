@@ -1,0 +1,42 @@
+# Personal data and cached images
+object_cache/
+captures/
+images/
+screenshots/
+
+# Image files (potentially personal)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.webp
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Databases and logs
+*.db
+*.log
+chat_log.json
+conversation_history.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
