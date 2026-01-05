@@ -47,10 +47,10 @@ This project is proudly supported by industry leaders making accessible technolo
 
 | Component | Product | Use Case | Link |
 |-----------|---------|----------|------|
-| **Main Controller** | DFRduino Mega2560 (×2) | Sensor hub & peripheral control | [View Product →](https://www.dfrobot.com/product-191.html) |
-| **Stereo Vision** | USB Camera 720p Wide-angle (×2) | Depth perception & spatial mapping | [View Product →](https://www.dfrobot.com/product-2089.html) |
-| **Haptic Servos** | DSS-P05 Standard Servo 5kg (×2) | Directional haptic feedback | [View Product →](https://www.dfrobot.com/product-188.html) |
-| **Touch Sensors** | Circular Force Sensor 7.6mm (×2) | User interaction input | [View Product →](https://www.dfrobot.com/product-2058.html) |
+| **Main Controller** | DFRduino Mega2560 (×2) | Sensor hub & peripheral control | [View Product →](https://www.dfrobot.com/product-655.html) |
+| **Stereo Vision** | USB Camera 720p Wide-angle (×2) | Depth perception & spatial mapping | [View Product →](https://www.dfrobot.com/product-2537.html) |
+| **Haptic Servos** | DSS-P05 Standard Servo 5kg (×2) | Directional haptic feedback | [View Product →](https://www.dfrobot.com/product-236.html) |
+| **Touch Sensors** | Circular Force Sensor 7.6mm (×2) | User interaction input | [View Product →](https://www.dfrobot.com/product-1841.html) |
 
 > 💬 *"DFRobot's accessible pricing and robust documentation made prototyping this assistive device achievable for independent developers."*
 
