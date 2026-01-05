@@ -29,6 +29,7 @@ This project is proudly supported by industry leaders making accessible technolo
 <table>
 <tr>
 <td align="center" width="33%">
+<<<<<<< HEAD
 <a href="https://www.dfrobot.com">
 <img src="https://dfimg.dfrobot.com/logo.png](https://www.amazon.com/stores/DFROBOT/page/BFD6A856-AD8B-474C-B856-8229F8D47212" alt="DFRobot" width="150"/>
 </a>
@@ -48,6 +49,18 @@ This project is proudly supported by industry leaders making accessible technolo
 </a>
 <br><strong>Radxa</strong>
 <br><em>High-Performance SBCs</em>
+=======
+<h3><a href="https://www.dfrobot.com">🤖 DFRobot</a></h3>
+<em>Robotics & Open-Source Hardware</em>
+</td>
+<td align="center" width="33%">
+<h3><a href="https://polymaker.com">🎨 Polymaker</a></h3>
+<em>Advanced 3D Printing Materials</em>
+</td>
+<td align="center" width="33%">
+<h3><a href="https://radxa.com">💻 Radxa</a></h3>
+<em>High-Performance SBCs</em>
+>>>>>>> 73e67e5 (🔧 Fix: Remove broken sponsor logo images - Use clean text-based sponsor display with emoji icons)
 </td>
 </tr>
 </table>
