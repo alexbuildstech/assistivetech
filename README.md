@@ -6,6 +6,9 @@
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%7C%20ARM-blue)](https://github.com)
 [![License: Open Source](https://img.shields.io/badge/License-Open%20Source-green)](https://github.com)
 
+### 🏆 Recognition
+**Winner of 1st Place at the Sci-Blast 3.0 Fair (St. Xavier's College)** – Showcased to 1,700+ attendees.
+
 An open-source assistive technology prototype that helps visually impaired users navigate indoor environments using AI vision, spatial memory, and 3D audio guidance.
 
 ---
