@@ -10,7 +10,7 @@ An open-source assistive technology prototype that helps visually impaired users
 
 ---
 
-## 💬 Origin Story: Why This Project Exists
+## Origin Story: Why This Project Exists
 
 I didn’t start this because of a big personal event. I started it because I was bored, curious, and slightly annoyed that existing systems felt limited. My initial thought was simple: *Can sound be used more intelligently for assistive technology?*
 
@@ -26,7 +26,7 @@ This system is the result of that exploration. It’s a research prototype and a
 
 ---
 
-## 🎯 What Does This Do?
+## What Does This Do?
 
 This system is a smart vision assistant that helps users navigate indoor spaces. It combines AI vision, spatial memory, and 3D audio to:
 
@@ -39,7 +39,7 @@ This project is designed for researchers, developers, and accessibility advocate
 
 ---
 
-## 🤝 Sponsors & Partners
+## Sponsors & Partners
 
 This project is proudly supported by industry leaders making accessible technology possible:
 
@@ -120,7 +120,7 @@ python3 main_enhanced.py
 
 **The Problem:** Simple stereo panning is unnatural and can be fatiguing. The brain needs more detailed audio cues to accurately locate objects in 3D space.
 
-**Our Solution:** The system uses a custom 3D audio engine to create intuitive, non-fatiguing guidance. By modeling how sound behaves in the real world (using HRTF-inspired filtering, ITD simulation, and distance-based attenuation), it produces audio cues that feel natural. This allows the user to pinpoint an object's location—left, right, above, below, or far away—with much greater accuracy.
+**Our Solution:** The system uses a custom 3D audio engine to create intuitive, non-fatiguing guidance. By modeling how sound behaves in the real world (using HRTF-inspired filtering, ITD simulation, and distance-based attenuation), it produces audio cues that feel natural. This allows the user to pinpoint an object's location—left, right, above, below, or far away—with better accuracy than simple stereo panning.
 
 ---
 
@@ -177,7 +177,7 @@ graph TD
 | **Cost** | ~$50 (DIY parts) | ~$150 (Rock 5C + accessories) |
 
 > [!TIP]
-> The system auto-detects ARM processors and optimizes performance automatically!
+> The system auto-detects ARM processors and optimizes performance automatically, where possible.
 
 ### Software Stack
 
@@ -218,7 +218,7 @@ graph TD
 
 ---
 
-## 📖 How to Use
+## How to Use
 
 ### Keyboard Controls
 
@@ -412,7 +412,7 @@ assistivetech/
 | **Hardware** | DIY Linux | Cloud (phone) | Cloud (phone) | Proprietary |
 | **Privacy** | ✅ Local data | ❌ Cloud | ❌ Cloud | ⚠️ Unknown |
 
-### Why This System Stands Out
+### Why This Prototype Is Different
 
 > [!IMPORTANT]
 > **Experimental advantages in this prototype:**
