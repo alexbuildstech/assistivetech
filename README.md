@@ -12,7 +12,7 @@ An open-source assistive technology prototype that helps visually impaired users
 
 ## 💬 Origin Story: Why This Project Exists
 
-This project began not with a personal crisis, but with a simple thought experiment: *Can sound be used more intelligently for assistive technology?*
+I didn’t start this because of a big personal event. I started it because I was bored, curious, and slightly annoyed that existing systems felt limited. My initial thought was simple: *Can sound be used more intelligently for assistive technology?*
 
 After exploring audio-based navigation content (like A-to-D audio guides), I became curious about the untapped potential of spatial audio. I researched existing assistive devices and smart glasses and noticed a common gap: most systems lacked adaptive spatial audio and long-term environmental memory. They could see, but could they remember and learn?
 
@@ -128,7 +128,7 @@ python3 main_enhanced.py
 
 **The Problem:** Relying solely on a vision API for real-time tracking is slow and expensive.
 
-**Our Solution:** A two-stage hybrid approach. The system uses the powerful Gemini API for initial object detection and identification. Once an object is identified, a fast, local CSRT tracker takes over, following the object at up to 60 FPS. This reduces API calls by 40-70%, making the system both responsive and cost-effective.
+**Our Solution:** A two-stage hybrid approach. The system uses the current Gemini API for initial object detection and identification. Once an object is identified, a fast, local CSRT tracker takes over, following the object at up to 60 FPS. This reduces API calls by 40-70%, making the system both responsive and cost-effective.
 
 ---
 
@@ -415,10 +415,10 @@ assistivetech/
 ### Why This System Stands Out
 
 > [!IMPORTANT]
-> **Unique advantages:**
-> - Only system with conversational spatial memory
+> **Experimental advantages in this prototype:**
+> - To my knowledge, one of the few systems that combines conversational memory with spatial audio.
 > - True 3D audio with elevation cues (not just stereo panning)
-> - Completely customizable and open-source
+> - Fully customizable and open-source
 > - Privacy-first: all data stays on your device
 > - 67% cost reduction through learning
 
@@ -515,7 +515,7 @@ This is an **open research project**. We welcome contributions!
 - **OpenCV** - Computer vision library
 
 ### Inspiration
-- **Microsoft Soundscape** (discontinued but legendary)
+- **Microsoft Soundscape** (discontinued but influential)
 - The **accessibility research community**
 - All developers working to make technology more inclusive
 
