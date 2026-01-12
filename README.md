@@ -1,4 +1,4 @@
-# 🧭 AI-Powered Assistive Navigation System
+# AI-Powered Assistive Navigation System
 
 > **Smart vision assistance that learns and remembers your environment**
 
@@ -10,15 +10,32 @@ An open-source assistive technology prototype that helps visually impaired users
 
 ---
 
+## 💬 Origin Story: Why This Project Exists
+
+This project began not with a personal crisis, but with a simple thought experiment: *Can sound be used more intelligently for assistive technology?*
+
+After exploring audio-based navigation content (like A-to-D audio guides), I became curious about the untapped potential of spatial audio. I researched existing assistive devices and smart glasses and noticed a common gap: most systems lacked adaptive spatial audio and long-term environmental memory. They could see, but could they remember and learn?
+
+This led me to a core set of questions:
+- What if a system could remember where objects were left, answering questions like, *"Where did I leave my keys?"*
+- How can audio guidance be made intuitive without causing listening fatigue?
+
+The development process was one of trial and error. Early audio experiments with pink noise were too harsh, while the brain quickly adapted to and ignored brown noise. This led to the design of a custom adaptive beep system, where frequency and tone change based on the importance of the object being signaled. Many things broke along the way.
+
+This system is the result of that exploration. It’s a research prototype and a work in progress, built on the idea that assistive technology should be smart, adaptive, and genuinely helpful.
+
+---
+
 ## 🎯 What Does This Do?
 
-Imagine having a helpful companion that:
-- 👁️ **Sees and tracks** objects using AI vision
-- 🧠 **Remembers** where you left things ("Where are my keys?")
-- 🔊 **Guides you** with 3D audio that tells you exactly where objects are
-- 📚 **Learns** your environment to get faster and smarter over time
+This system is a smart vision assistant that helps users navigate indoor spaces. It combines AI vision, spatial memory, and 3D audio to:
 
-**Perfect for:** Researchers, developers, accessibility enthusiasts, or anyone interested in assistive AI technology.
+- **See and identify** objects in the user's environment.
+- **Remember and recall** the location of objects with conversational voice commands.
+- **Guide the user** to objects using intuitive, adaptive 3D audio cues.
+- **Learn the environment** over time, reducing API costs and improving response speed.
+
+This project is designed for researchers, developers, and accessibility advocates interested in the future of assistive AI.
 
 ---
 
@@ -29,21 +46,21 @@ This project is proudly supported by industry leaders making accessible technolo
 <table>
 <tr>
 <td align="center" width="33%">
-<h3><a href="https://www.dfrobot.com">🤖 DFRobot</a></h3>
+<h3><a href="https://www.dfrobot.com">DFRobot</a></h3>
 <em>Robotics & Open-Source Hardware</em>
 </td>
 <td align="center" width="33%">
-<h3><a href="https://polymaker.com">🎨 Polymaker</a></h3>
+<h3><a href="https://polymaker.com">Polymaker</a></h3>
 <em>Advanced 3D Printing Materials</em>
 </td>
 <td align="center" width="33%">
-<h3><a href="https://radxa.com">💻 Radxa</a></h3>
+<h3><a href="https://radxa.com">Radxa</a></h3>
 <em>High-Performance SBCs</em>
 </td>
 </tr>
 </table>
 
-### 🔧 Key Hardware from DFRobot
+### Key Hardware from DFRobot
 
 | Component | Product | Use Case | Link |
 |-----------|---------|----------|------|
@@ -52,13 +69,13 @@ This project is proudly supported by industry leaders making accessible technolo
 | **Haptic Servos** | DSS-P05 Standard Servo 5kg (×2) | Directional haptic feedback | [View Product →](https://www.dfrobot.com/product-236.html) |
 | **Touch Sensors** | Circular Force Sensor 7.6mm (×2) | User interaction input | [View Product →](https://www.dfrobot.com/product-1841.html) |
 
-> 💬 *"DFRobot's accessible pricing and robust documentation made prototyping this assistive device achievable for independent developers."*
+> *"DFRobot's accessible pricing and robust documentation made prototyping this assistive device achievable for independent developers."*
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
-### 1️⃣ Install Dependencies
+### 1. Install Dependencies
 ```bash
 # On Ubuntu/Debian
 sudo apt update && sudo apt install python3 python3-pip mpv
@@ -69,11 +86,11 @@ pip install google-generativeai opencv-python opencv-contrib-python \
             --break-system-packages
 ```
 
-### 2️⃣ Get API Keys
+### 2. Get API Keys
 - **Google Gemini API**: [Get yours here](https://aistudio.google.com)
 - **Groq API** (for speech): [Get yours here](https://console.groq.com)
 
-### 3️⃣ Configure and Run
+### 3. Configure and Run
 ```bash
 # Edit config.py with your API keys
 nano config.py
@@ -82,99 +99,55 @@ nano config.py
 python3 main_enhanced.py
 ```
 
-### 4️⃣ Try It Out
+### 4. Try It Out
 - Press **F** to detect objects in front of the camera
 - Press **C** to start voice recording, then ask: *"Where are my keys?"*
 - Press **M** to switch between different operating modes
 
 ---
 
-## 🌟 Key Features Explained
+## Key Features Explained
 
-### 🧠 Spatial Memory (The "Brain")
+### Spatial Memory (The "Brain")
 
-**What it does:** Remembers where objects are located, even after they leave the camera view.
+**The Problem:** Standard object detection is stateless. It forgets an object the moment it leaves the camera's view.
 
-**How it works:**
-```
-You: "Where did I leave my phone?"
-System: "Phone was last seen on the right side, 2 hours ago"
-```
-
-**Behind the scenes:**
-1. **Detects** objects using AI vision (Google Gemini)
-2. **Records** what, where, and when in a local database
-3. **Recalls** on demand using natural language queries
-
-> [!NOTE]
-> All data stays on your device. Images are compressed and hashed—raw video is never stored.
-
-**✨ New: Semantic Context Awareness**
-The system now understands *context* (e.g., "Phone [on the table]" vs just "Phone"). This allows for much more natural recall:
-> "I last saw your Phone **on the kitchen table** 5 minutes ago."
+**Our Solution:** The system gives the AI a persistent "memory." It logs detected objects (what they are, where they were seen, and when) into a local database. This allows users to ask conversational questions like, *"Where did I last see my keys?"* All data is stored locally and securely. The system also uses semantic context to provide more natural responses, such as "on the kitchen table."
 
 ---
 
-### 🔊 3D Spatial Audio (The "Guide")
+### 3D Spatial Audio (The "Guide")
 
-**What it does:** Creates realistic 3D sound that tells you where objects are located.
+**The Problem:** Simple stereo panning is unnatural and can be fatiguing. The brain needs more detailed audio cues to accurately locate objects in 3D space.
 
-**How it works:**
-- Objects **above** you sound brighter (higher frequencies)
-- Objects **to the left** play louder in your left ear
-- **Distant** objects sound quieter with muffled high frequencies
-
-**Technical implementation:**
-- HRTF-inspired filtering (Head-Related Transfer Function)
-- Interaural Time Difference (ITD) simulation
-- Distance-based attenuation and air absorption modeling
-
-> [!TIP]
-> Use stereo headphones for the best 3D audio experience!
+**Our Solution:** The system uses a custom 3D audio engine to create intuitive, non-fatiguing guidance. By modeling how sound behaves in the real world (using HRTF-inspired filtering, ITD simulation, and distance-based attenuation), it produces audio cues that feel natural. This allows the user to pinpoint an object's location—left, right, above, below, or far away—with much greater accuracy.
 
 ---
 
-### 👁️ AI Vision + Tracking (The "Eyes")
+### AI Vision + Tracking (The "Eyes")
 
-**What it does:** Finds objects and follows them in real-time.
+**The Problem:** Relying solely on a vision API for real-time tracking is slow and expensive.
 
-**Two-stage approach:**
-1. **AI Detection (Gemini):** Identifies objects in the scene
-2. **Fast Tracking (CSRT):** Follows detected objects at 60 FPS without using the API
-
-**Why this matters:**
-- **Fast:** Tracks at 60 FPS locally after initial detection
-- **Cost-effective:** Reduces API usage by 40-70%
-- **Accurate:** Handles occlusion and movement
+**Our Solution:** A two-stage hybrid approach. The system uses the powerful Gemini API for initial object detection and identification. Once an object is identified, a fast, local CSRT tracker takes over, following the object at up to 60 FPS. This reduces API calls by 40-70%, making the system both responsive and cost-effective.
 
 ---
 
-### 🎙️ Voice Control (The "Interface")
+### Voice Control (The "Interface")
 
-**What it does:** Control everything with your voice using natural language.
+**The Problem:** Assistive technology should be controlled hands-free, using natural language.
 
-**Example commands:**
-| Say This | What Happens |
-|----------|-------------|
-| *"Track the cup"* | Starts tracking a cup |
-| *"Where are my keys?"* | Recalls last known location |
-| *"Describe the scene"* | Gets AI description of environment |
-| *"Navigation mode"* | Switches to navigation mode |
-
-**Powered by:**
-- **Speech-to-Text:** Groq Whisper (fast and accurate)
-- **Text-to-Speech:** Microsoft Edge-TTS (natural voice)
+**Our Solution:** The system is controlled through a simple, intuitive voice interface. Using a combination of Groq Whisper for fast speech-to-text and Microsoft Edge-TTS for natural-sounding voice output, users can issue commands, ask questions, and receive feedback without needing to use a keyboard or screen.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```mermaid
 graph TD
-    A[👤 User] -->|Voice/Keyboard| B[Command Processor]
-    B --> C[👁️ Vision Module]
-    B --> D[🧠 Learning Module]
-    B --> E[🔊 Audio Module]
+    A[User] -->|Voice/Keyboard| B[Command Processor]
+    B --> C[Vision Module]
+    B --> D[Learning Module]
+    B --> E[Audio Module]
     
     C -->|Detections| F[Object Manager]
     D -->|Memory| F
@@ -191,7 +164,7 @@ graph TD
 
 ---
 
-## 🛠️ Technical Specifications
+## Technical Specifications
 
 ### Hardware Requirements
 
@@ -288,7 +261,7 @@ Step 5: Later, ask about it
 
 ---
 
-## 🔬 How The Learning System Works
+## How The Learning System Works
 
 ### The Problem
 Traditional assistive systems forget everything when an object leaves the camera. You have to keep scanning repeatedly.
@@ -298,22 +271,22 @@ Traditional assistive systems forget everything when an object leaves the camera
 
 ### Step-by-Step Process
 
-#### 1️⃣ **Observation Phase**
+#### 1. Observation Phase
 Every detected object is recorded with:
 - **What:** Object label (e.g., "keys", "phone")
 - **Where:** Position in 3D space (x, y, distance)
 - **When:** Timestamp
 - **How it looks:** Compressed visual fingerprint (perceptual hash)
 
-#### 2️⃣ **Storage Phase**
+#### 2. Storage Phase
 ```
-assistive_learning.db (SQLite)
-├── Objects table
+assistivetech_memory.db (SQLite)
+├── objects
 │   ├── object_id
-│   ├── label (e.g., "keys")
+│   ├── label
 │   ├── x_position, y_position
 │   ├── timestamp
-│   ├── confidence_score
+│   ├── confidence
 │   └── image_hash
 └── object_cache/ (compressed images)
 ```
@@ -321,12 +294,11 @@ assistive_learning.db (SQLite)
 > [!IMPORTANT]
 > **Privacy-First Design:** Raw video is never stored. Only compressed, hashed snapshots are kept locally.
 
-#### 3️⃣ **Recall Phase**
+#### 3. Recall Phase
 When you ask *"Where are my keys?"*:
-1. System queries the database
-2. Finds the most recent sighting
-3. Calculates time elapsed
-4. Translates coordinates to natural language
+1. The system queries the database for the most recent sighting of "keys."
+2. It calculates the time elapsed since the object was last seen.
+3. It translates the stored coordinates into a natural language response.
 
 **Example response:**
 ```
@@ -334,11 +306,11 @@ When you ask *"Where are my keys?"*:
 side of your desk, near the center."
 ```
 
-#### 4️⃣ **Optimization Phase**
+#### 4. Optimization Phase
 The system gets smarter over time:
-- **Temporal Decay:** Recent sightings are prioritized
-- **Frequency Learning:** Objects usually found in specific locations are detected faster
-- **Duplicate Merging:** Prevents database bloat from repeated detections
+- **Temporal Decay:** Recent sightings are prioritized over older ones.
+- **Frequency Learning:** Common objects in familiar locations are detected faster.
+- **Duplicate Merging:** The system avoids creating duplicate entries for the same object.
 
 ### Benefits
 
@@ -351,7 +323,7 @@ The system gets smarter over time:
 
 ---
 
-## 💰 Cost Breakdown
+## Cost Breakdown
 
 ### API Usage Costs
 
@@ -382,37 +354,36 @@ Assuming 4 hours of daily use:
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 assistivetech/
 │
-├── 🎯 Core Application
-│   ├── main_enhanced.py          # Main entry point (start here)
+├── Core Application
+│   ├── main_enhanced.py          # Main entry point
 │   └── config.py                 # API keys and settings
 │
-├── 👁️ Vision System
+├── Vision System
 │   ├── vision_module.py          # Gemini API + CSRT tracking
 │   └── object_manager.py         # Multi-object tracking logic
 │
-├── 🧠 Learning System
-│   └── learning_module.py        # Spatial memory + database
+├── Learning System
+│   └── learning_module.py        # Spatial memory and database
 │
-├── 🔊 Audio System
+├── Audio System
 │   ├── audio_hrtf.py             # 3D audio engine
 │   └── audio_module_multi.py     # Multi-source mixer
 │
-├── 🎙️ Voice Interface
-│   └── voice_control.py          # Speech recognition + TTS
+├── Voice Interface
+│   └── voice_control.py          # Speech recognition and TTS
 │
-├── 🎛️ Operating Modes
-│   └── mode_controller.py        # Intelligent mode switching
+├── Operating Modes
+│   └── mode_controller.py        # Mode switching logic
 │
-└── 💾 Data Storage
+└── Data Storage
     ├── assistive_learning.db     # SQLite database (auto-created)
     └── object_cache/             # Compressed image storage
-- ✅ **Semantic Context Awareness** - Understands "Phone [on table]" vs just "Phone"
-- ✅ **Compressed image caching** for visual object memory
+```
 
 ### Key Files Explained
 
@@ -427,7 +398,7 @@ assistivetech/
 
 ---
 
-## 🆚 Comparison with Existing Systems
+## Comparison with Existing Systems
 
 | Feature | **This System** | Envision AI | Seeing AI | OrCam MyEye |
 |---------|----------------|-------------|-----------|-------------|
@@ -453,7 +424,7 @@ assistivetech/
 
 ---
 
-## 🚀 Future Development Roadmap
+## Future Development Roadmap
 
 ### Phase 1: Hardware Integration (Current)
 - [ ] ESP32 wireless connectivity
@@ -486,7 +457,7 @@ assistivetech/
 
 ---
 
-## 🔬 Research Applications
+## Research Applications
 
 This system is designed for research in:
 
@@ -510,7 +481,7 @@ This system is designed for research in:
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 This is an **open research project**. We welcome contributions!
 
@@ -535,7 +506,7 @@ This is an **open research project**. We welcome contributions!
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 ### Technologies
 - **Google Gemini** - Vision AI capabilities
@@ -550,7 +521,7 @@ This is an **open research project**. We welcome contributions!
 
 ---
 
-## 📄 License
+## License
 
 **MIT License** - See [LICENSE](LICENSE) file.
 
@@ -558,21 +529,21 @@ You are free to use, modify, and distribute this software. If you build somethin
 
 ---
 
-## 📞 Contact & Support
+## Contact & Support
 
 ### For Researchers & Developers
-- 📚 **Technical Docs:** See `/docs` folder (coming soon)
-- 🔧 **Hardware Specs:** See `/hardware` folder (coming soon)
-- 📄 **Research Papers:** TBD
+- **Technical Docs:** See `/docs` folder (coming soon)
+- **Hardware Specs:** See `/hardware` folder (coming soon)
+- **Research Papers:** TBD
 
 ### For Collaboration
-- 💼 **Sponsorship inquiries:** Open to partnerships
-- 🤝 **Academic collaboration:** Open to research partnerships
-- 🐛 **Bug reports:** Submit an issue on GitHub
+- **Sponsorship inquiries:** Open to partnerships
+- **Academic collaboration:** Open to research partnerships
+- **Bug reports:** Submit an issue on GitHub
 
 ---
 
-## 📊 Project Info
+## Project Info
 
 | | |
 |---|---|
@@ -584,7 +555,7 @@ You are free to use, modify, and distribute this software. If you build somethin
 
 ---
 
-## 📝 Citation
+## Citation
 
 If you use this system in your research, please cite:
 
@@ -603,8 +574,8 @@ If you use this system in your research, please cite:
 
 <div align="center">
 
-**Made with ❤️ for the accessibility community**
+**Made for the accessibility community**
 
-[⭐ Star this repo](https://github.com) • [🐛 Report Bug](https://github.com) • [💡 Request Feature](https://github.com)
+[Star this repo](https://github.com) • [Report Bug](https://github.com) • [Request Feature](https://github.com)
 
 </div>
