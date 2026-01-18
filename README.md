@@ -225,12 +225,16 @@ This table is a high-level comparison of stated features based on publicly avail
 
 ---
 
-## Project Support
+## Support & Credits
 
-### Sponsors & Partners
-This project is supported by the following industry leaders:
+### DFRobot
+DFRobot provided most of the electronic components used in this project, including control boards, sensors, power modules, and related hardware. This support enabled the transition from a software-only prototype to physical testing and hardware integration.
 
-(Sponsor table remains here)
+### Polymaker
+Polymaker provided approximately $500 worth of filament used for prototyping structural parts, enclosures, mounts, and hardware fixtures.
+
+### Radxa
+Radxa provided computing hardware support used during the development and testing of this project.
 
 ### Cost Breakdown (**Estimates Only**)
 
@@ -247,4 +251,36 @@ This project is supported by the following industry leaders:
 
 ---
 
-(The final sections: Contributing, Acknowledgments, License, Contact, Project Info, and Citation would remain largely the same, as they do not make claims about the project's capabilities.)
+## Acknowledgments
+
+### Technologies
+- **Google Gemini** - Vision AI capabilities
+- **Groq** - Whisper API access
+- **Microsoft Edge** - TTS engine
+- **OpenCV** - Computer vision library
+
+### Inspiration
+- **Microsoft Soundscape** (discontinued but influential)
+- The **accessibility research community**
+- All developers working to make technology more inclusive
+
+---
+
+## AI Usage Disclosure
+
+In the spirit of transparency, this section clarifies how AI tools were used in this project.
+
+The core idea, research questions, system design, and overall architecture were created by the project author. AI was not used to generate the main concept, hypothesis, or system structure.
+
+AI tools were used for the following assistive tasks:
+- **Documentation:** Parts of this README were edited for clarity and readability with the help of an AI assistant (Google's Jules).
+- **Code Comments:** Some code comments were improved with AI assistance to make them more readable.
+- **Minor Refactoring:** AI was occasionally used for minor code formatting and refactoring.
+
+The goal was to use AI as a productivity tool for routine tasks, not as a substitute for the core research and development work.
+
+---
+
+## Contributing
+
+(The Contributing, License, Contact, Project Info, and Citation sections would follow here.)
