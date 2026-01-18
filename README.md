@@ -179,7 +179,26 @@ The process is based on a set of simple, rule-based steps:
 4.  **Optimization:** The "optimization" is a set of simple heuristics: prioritizing recent sightings (temporal decay), and merging duplicate entries. This is not a machine learning process.
 
 ### Project Structure
-(The project structure diagram and file explanations would remain here as they are factual descriptions of the codebase.)
+---
+
+### Project Structure
+
+A note on the current file structure: This project has been under active development for about one week. Early changes were not well documented, which is reflected in the flat file structure and large number of testing scripts in the root directory. From now on, the project's structure and updates will be documented more clearly.
+
+The repository currently includes the following core components:
+
+-   **`main_enhanced.py`**: The main entry point for the application.
+-   **Core Modules**:
+    -   `vision_module.py`: Handles object detection and tracking.
+    -   `audio_hrtf.py` & `audio_module_multi.py`: Manage the 3D spatial audio engine.
+    -   `learning_module.py`: Contains the logic for the spatial memory system.
+    -   `voice_control.py`: Manages the voice command interface.
+    -   `mode_controller.py`: Switches between different operating modes.
+-   **Configuration & State**:
+    -   `config.py`: Stores API keys and other configuration settings.
+    -   `shared_state.py`: Manages the shared state between different modules.
+-   **Testing Scripts**:
+    -   A large number of `test_*.py` and `verify_*.py` files are included in the root directory. These are used for iterative testing of various components and are not part of the core application.
 
 ---
 
@@ -283,4 +302,16 @@ The goal was to use AI as a productivity tool for routine tasks, not as a substi
 
 ## Contributing
 
-(The Contributing, License, Contact, Project Info, and Citation sections would follow here.)
+(The Contributing section would follow here.)
+
+---
+
+## License
+
+This project is licensed under the MIT License.
+
+In simple terms, this means you are free to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the software. The main requirement is that you include the original copyright and license notice in any copy of the software. The software is provided "as is," without warranty of any kind.
+
+---
+
+(The Contact, Project Info, and Citation sections would follow here.)
