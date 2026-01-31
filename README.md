@@ -8,6 +8,26 @@ The central hypothesis is that a **locally-persistent object history** can reduc
 
 ---
 
+## Sponsors & Hardware Partners
+
+This research prototype is made possible through the support of industry partners providing the specialized hardware used in our experimental setup.
+
+### Primary Hardware Sponsor: DFRobot
+[DFRobot](https://www.dfrobot.com) has provided critical components for environmental interaction and perception:
+- **DFRobot Arduino Mega 2560**: Used for low-level sensor multiplexing.
+- **720p USB Camera**: The primary visual input for the VLM/Tracker pipeline.
+- **Pressure Sensor**: Integrated for haptic/physical environmental feedback experimentation.
+
+### Compute Platform Provider: Radxa
+[Radxa](https://radxa.com) provides the high-performance ARM-based compute core:
+- **Radxa Rock 5C**: The primary SBC used for local heuristic processing and spatial rendering.
+
+### Prototyping Partner: Polymaker
+[Polymaker](https://polymaker.com) supports our structural design and rapid prototyping:
+- **3D Printer Filament**: Used extensively for creating custom enclosures and mounting hardware for the sensor array.
+
+---
+
 ## Quick Start
 
 ### 1. Install Dependencies
@@ -187,25 +207,6 @@ A functional prototype can be assembled for approximately **$50–$150**, signif
 
 ---
 
-## Sponsors & Hardware Partners
-
-This research prototype is made possible through the support of industry partners providing the specialized hardware used in our experimental setup.
-
-### Primary Hardware Sponsor: DFRobot
-[DFRobot](https://www.dfrobot.com) has provided critical components for environmental interaction and perception:
-- **DFRobot Arduino Mega 2560**: Used for low-level sensor multiplexing.
-- **720p USB Camera**: The primary visual input for the VLM/Tracker pipeline.
-- **Pressure Sensor**: Integrated for haptic/physical environmental feedback experimentation.
-
-### Compute Platform Provider: Radxa
-[Radxa](https://radxa.com) provides the high-performance ARM-based compute core:
-- **Radxa Rock 5C**: The primary SBC used for local heuristic processing and spatial rendering.
-
-### Prototyping Partner: Polymaker
-[Polymaker](https://polymaker.com) supports our structural design and rapid prototyping:
-- **3D Printer Filament**: Used extensively for creating custom enclosures and mounting hardware for the sensor array.
-
----
 
 ## Citation & Acknowledgments
 
