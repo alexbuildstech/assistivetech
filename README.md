@@ -102,12 +102,15 @@ graph TD
 
 #### Hardware Environment
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| **Compute** | Linux-based x64 system | Radxa Rock 5C (ARM SBC) |
-| **Optics** | USB Webcam (640x480) | 720p+ USB Camera |
-| **Output** | Basic Speakers | Low-latency Stereo Headphones |
-| **Input** | Built-in Microphone | Directional External Mic |
+| Component | Minimum | Recommended | Sponsored By |
+|-----------|---------|-------------|--------------|
+| **Compute** | Linux-based x64 system | **Radxa Rock 5C** (ARM SBC) | Radxa |
+| **Optics** | USB Webcam (640x480) | **720p USB Camera** | DFRobot |
+| **Micro-controller** | N/A | **Arduino Mega 2560** | DFRobot |
+| **Sensors** | N/A | **Pressure Sensor** | DFRobot |
+| **Chassis** | Cardboard/DIY | **3D Printed Case** (Polymaker Filament) | Polymaker |
+| **Output** | Basic Speakers | Low-latency Stereo Headphones | - |
+| **Input** | Built-in Microphone | Directional External Mic | - |
 
 > [!TIP]
 > The system includes ARM-specific optimizations for compute-limited environments.
@@ -181,6 +184,26 @@ This project occupies a niche between high-cost commercial assistive devices and
 
 ### Hardware Reference
 A functional prototype can be assembled for approximately **$50–$150**, significantly lower than the entry point for dedicated assistive hardware (e.g., OrCam). This cost reduction is achieved by shifting complex processing to cloud VLMs and using off-the-shelf Linux hardware.
+
+---
+
+## Sponsors & Hardware Partners
+
+This research prototype is made possible through the support of industry partners providing the specialized hardware used in our experimental setup.
+
+### Primary Hardware Sponsor: DFRobot
+[DFRobot](https://www.dfrobot.com) has provided critical components for environmental interaction and perception:
+- **DFRobot Arduino Mega 2560**: Used for low-level sensor multiplexing.
+- **720p USB Camera**: The primary visual input for the VLM/Tracker pipeline.
+- **Pressure Sensor**: Integrated for haptic/physical environmental feedback experimentation.
+
+### Compute Platform Provider: Radxa
+[Radxa](https://radxa.com) provides the high-performance ARM-based compute core:
+- **Radxa Rock 5C**: The primary SBC used for local heuristic processing and spatial rendering.
+
+### Prototyping Partner: Polymaker
+[Polymaker](https://polymaker.com) supports our structural design and rapid prototyping:
+- **3D Printer Filament**: Used extensively for creating custom enclosures and mounting hardware for the sensor array.
 
 ---
 
