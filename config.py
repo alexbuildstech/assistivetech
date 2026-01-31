@@ -8,14 +8,14 @@ import os
 # ============================================================================
 # GEMINI API CONFIGURATION
 # ============================================================================
-API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_API_KEY_HERE")
+API_KEY = os.getenv("GOOGLE_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
 MODEL_ID = "models/gemini-flash-lite-latest"  # Reverted to 2.0 Flash as requested
 GENERAL_CHAT_MODEL = "models/gemini-flash-lite-latest"  # For general conversation
 
 # ============================================================================
 # GROQ API CONFIGURATION (for advanced Whisper STT & Routing)
 # ============================================================================
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "YOUR_API_KEY_HERE")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
 WHISPER_MODEL = "whisper-large-v3-turbo"
 GROQ_ROUTER_MODEL = "openai/gpt-oss-20b"  # Intelligent router model
 
@@ -97,11 +97,16 @@ CRITICAL: Do NOT use markdown formatting, asterisks, bold (**), italics, bracket
 Just use plain, natural sentences. This will be spoken by text-to-speech.
 """
 
+# Default Detection prompt (fallback)
+DETECTION_PROMPT = DETECTION_PROMPT_MULTI_OBJECT
+
 # ============================================================================
 # CAMERA CONFIGURATION
 # ============================================================================
-CAMERA_INDICES = [ 2]  # Try these camera indices in order
+CAMERA_INDICES = [0]  # Try these camera indices in order
 TEMP_IMAGE_FILE = "detection_frame.png"
+CAMERA_WIDTH = 1280
+CAMERA_HEIGHT = 720
 
 # ============================================================================
 # AUDIO CONFIGURATION

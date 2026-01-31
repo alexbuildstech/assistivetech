@@ -35,8 +35,10 @@ class HRTF_AudioController:
         self.listener_pos = (0, 0, 0)
         self.listener_ori = (0, 0, -1, 0, 1, 0) # Looking -Z, Up +Y
         
+        self.is_dummy = not OPENAL_AVAILABLE
+        
         if not OPENAL_AVAILABLE:
-            print("⚠️ OpenAL unavailable. Audio disabled.")
+            print("⚠️ OpenAL unavailable. Audio disabled (Fallback to dummy).")
             return
 
         try:
@@ -188,6 +190,11 @@ class HRTF_AudioController:
         except Exception:
             pass
 
+    def pause_stream(self):
+        """Pause audio (stop loop)."""
+        self.running = False
+        print("⏸️ OpenAL audio paused")
+
     def stop_stream(self):
         """Stop audio."""
         self.running = False
@@ -263,9 +270,9 @@ class HRTF_AudioController:
             cx = obj.bbox[0] + obj.bbox[2] / 2
             cy = obj.bbox[1] + obj.bbox[3] / 2
             
-            # Assuming 1280x720 frame
-            width = 1280
-            height = 720
+            # Assuming frame dimensions from config
+            width = config.CAMERA_WIDTH
+            height = config.CAMERA_HEIGHT
             
             # Normalize X (-1 left, +1 right)
             norm_x = (cx / width) * 2 - 1

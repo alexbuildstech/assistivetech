@@ -112,35 +112,35 @@ class MultiAudioController:
         
         # Mix all active sources
         with self.sources_lock:
-            for obj_id, source_data in self.sources.items():
-                azimuth = source_data.get("azimuth", 0)
-                volume = source_data.get("volume", 0.5)
-                signature_name = source_data.get("signature", "default")
-                position = source_data.get("position", 0)
-                
-                # Get signature
-                signature = self.signatures.get(signature_name, self.signatures["default"])
-                
-                # Calculate stereo pan
-                pan = np.clip(azimuth / config.MAX_AZIMUTH_DEGREES, -1.0, 1.0)
-                angle = (pan + 1.0) * np.pi / 4
-                left_gain = np.cos(angle) * volume
-                right_gain = np.sin(angle) * volume
-                
-                # Sample from signature (looping)
-                samples = np.zeros(frames, dtype=np.float32)
-                n_sig_samples = len(signature)
-                
-                for i in range(frames):
-                    samples[i] = signature[position % n_sig_samples]
-                    position += 1
-                
-                # Update position for next callback
-                source_data["position"] = position
-                
-                # Mix into channels
-                left_channel += samples * left_gain
-                right_channel += samples * right_gain
+            # Create a localized copy of source data to minimize lock time
+            active_sources = list(self.sources.items())
+            
+        for obj_id, source_data in active_sources:
+            azimuth = source_data.get("azimuth", 0)
+            volume = source_data.get("volume", 0.5)
+            signature_name = source_data.get("signature", "default")
+            position = source_data.get("position", 0)
+            
+            # Get signature
+            signature = self.signatures.get(signature_name, self.signatures["default"])
+            n_sig_samples = len(signature)
+            
+            # Vectorized sample extraction
+            indices = np.arange(position, position + frames) % n_sig_samples
+            samples = signature[indices]
+            
+            # Update position (requires lock update later or atomic storage)
+            source_data["position"] = position + frames
+            
+            # Calculate stereo pan
+            pan = np.clip(azimuth / config.MAX_AZIMUTH_DEGREES, -1.0, 1.0)
+            angle = (pan + 1.0) * np.pi / 4
+            left_gain = np.cos(angle) * volume
+            right_gain = np.sin(angle) * volume
+            
+            # Mix into channels (vectorized)
+            left_channel += samples * left_gain
+            right_channel += samples * right_gain
         
         # Normalize to prevent clipping
         max_val = max(np.abs(left_channel).max(), np.abs(right_channel).max())
@@ -152,11 +152,13 @@ class MultiAudioController:
         outdata[:, 0] = left_channel
         outdata[:, 1] = right_channel
     
-    def start(self):
+    def start_stream(self, shared_state=None):
         """Start the audio stream."""
         if self.running:
             print("⚠️ Audio stream already running.")
             return
+        
+        self.shared_state = shared_state
         
         try:
             self.stream = sd.OutputStream(
@@ -172,7 +174,17 @@ class MultiAudioController:
         except Exception as e:
             print(f"❌ Failed to start audio stream: {e}")
     
-    def stop(self):
+    def pause_stream(self):
+        """Pause the audio stream."""
+        self.stop_stream()
+        print("⏸️ Multi-audio stream paused.")
+
+    def resume_stream(self):
+        """Resume the audio stream."""
+        self.start_stream(self.shared_state)
+        print("▶️ Multi-audio stream resumed.")
+
+    def stop_stream(self):
         """Stop the audio stream."""
         if not self.running:
             return

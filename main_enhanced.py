@@ -206,16 +206,26 @@ def main():
             # === Initialization ===
             print("[1/5] Initializing Vision Controller...")
             vision_controller = VisionController()
-            print()
             
-            print("[2/5] Initializing HRTF Audio Controller...")
+            # [2/5] Initializing Audio Controller
+            print("\n[2/5] Initializing Audio Controller...")
+            audio_controller = None
             if config.ENABLE_HRTF:
-                from audio_hrtf import HRTF_AudioController
-                audio_controller = HRTF_AudioController()
-            else:
+                try:
+                    from audio_hrtf import HRTF_AudioController
+                    audio_controller = HRTF_AudioController()
+                    # Check if it actually initialized (not dummy)
+                    if hasattr(audio_controller, 'is_dummy') and audio_controller.is_dummy:
+                        print("⚠️ HRTF reported as dummy. Falling back to MultiAudio.")
+                        audio_controller = None
+                except Exception as e:
+                    print(f"⚠️ Could not initialize HRTF Audio: {e}. Falling back...")
+                    audio_controller = None
+                    
+            if audio_controller is None:
                 from audio_module_multi import MultiAudioController
                 audio_controller = MultiAudioController()
-            print()
+            
             print("[3/5] Initializing Voice Controller...")
             try:
                 voice_controller = VoiceController()
@@ -411,9 +421,13 @@ def main():
                     # Standardizing on Clockwise rotation for right-side mounting
                     h, w, _ = frame.shape
                     # Take right half (camera on right side of glasses)
+                    # take right half (camera on right side of glasses)
                     right_half = frame[:, w // 2:]
                     # Rotate 90 degrees CLOCKWISE
                     frame = cv2.rotate(right_half, cv2.ROTATE_90_CLOCKWISE)
+                    
+                    # Ensure frame matches config resolution after rotation
+                    frame = cv2.resize(frame, (config.CAMERA_WIDTH, config.CAMERA_HEIGHT))
         
                     # Update dimensions in controllers if changed
                     new_h, new_w = frame.shape[:2]
@@ -446,10 +460,10 @@ def main():
                     # 6. Handle Input (Window OR Terminal)
                     key = cv2.waitKey(1) & 0xFF
                     
-                    # Check Terminal Input
+                    # Also check terminal input specifically
                     term_key = console.get_key()
                     if term_key:
-                        key = ord(term_key)
+                        key = ord(term_key.lower())
                     
                     if key == ord('q') or key == ord('Q'):
                         break
@@ -586,11 +600,19 @@ def main():
                             print(f"Scene: {description}")
                     
                     elif key == ord('m') or key == ord('M'):
-                        # Cycle modes
-                        modes = [config.NavigationMode.NAVIGATION, config.NavigationMode.OBSTACLE,
-                                config.NavigationMode.SOCIAL, config.NavigationMode.EXPLORATION]
-                        current_idx = modes.index(mode_controller.current_mode)
-                        next_mode = modes[(current_idx + 1) % len(modes)]
+                        # Hardened mode cycling
+                        available_modes = [
+                            config.NavigationMode.NAVIGATION, 
+                            config.NavigationMode.OBSTACLE,
+                            config.NavigationMode.SOCIAL, 
+                            config.NavigationMode.EXPLORATION
+                        ]
+                        try:
+                            current_idx = available_modes.index(mode_controller.current_mode)
+                        except ValueError:
+                            current_idx = -1 # Start from beginning
+                            
+                        next_mode = available_modes[(current_idx + 1) % len(available_modes)]
                         mode_controller.set_mode(next_mode)
                         if voice_enabled:
                             voice_controller.speak(f"{next_mode} mode", async_mode=True)

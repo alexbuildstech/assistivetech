@@ -174,7 +174,7 @@ class VoiceController:
         self._transcribe_audio(audio_data)
         
         # Wait for transcription to complete (with timeout)
-        if self.transcription_ready.wait(timeout=10):
+        if self.transcription_ready.wait(timeout=5):
             result = self.transcribed_text
             self.transcribed_text = None
             return result
@@ -183,24 +183,27 @@ class VoiceController:
             return None
     
     def _transcribe_audio(self, audio_data):
-        """Transcribe audio using Groq Whisper."""
-        try:
-            transcription = self.groq_client.audio.transcriptions.create(
-                file=("audio.wav", audio_data),
-                model="whisper-large-v3-turbo",
-                language="en"
-            )
-            
-            text = transcription.text.strip()
-            print(f"📝 Transcription: {text}")
-            
-            self.transcribed_text = text
-            self.transcription_ready.set()
-            
-        except Exception as e:
-            print(f"❌ Transcription error: {e}")
-            self.transcribed_text = None
-            self.transcription_ready.set()
+        """Transcribe audio using Groq Whisper in a background thread."""
+        def run_transcription():
+            try:
+                transcription = self.groq_client.audio.transcriptions.create(
+                    file=("audio.wav", audio_data),
+                    model="whisper-large-v3-turbo",
+                    language="en"
+                )
+                
+                text = transcription.text.strip()
+                print(f"📝 Transcription: {text}")
+                
+                self.transcribed_text = text
+                self.transcription_ready.set()
+                
+            except Exception as e:
+                print(f"❌ Transcription error: {e}")
+                self.transcribed_text = None
+                self.transcription_ready.set()
+
+        threading.Thread(target=run_transcription, daemon=True).start()
     
     def _initialize_gemini_chat(self):
         """Initialize Gemini client for general chat."""
@@ -237,26 +240,31 @@ class VoiceController:
 
     def stop_speaking(self):
         """Stop any ongoing TTS playback immediately."""
-        # Kill the mpv process if it's running
-        if hasattr(self, 'current_mpv_process') and self.current_mpv_process and self.current_mpv_process.poll() is None:
+        self._stop_requested = True
+        # Kill the mpv/ffplay process if it's running
+        process = getattr(self, 'current_mpv_process', None)
+        if process and process.poll() is None:
             try:
-                self.current_mpv_process.terminate()
-                self.current_mpv_process.wait(timeout=0.5) # Give it a moment to terminate
-                if self.current_mpv_process.poll() is None: # If still running, force kill
-                    self.current_mpv_process.kill()
-                print("🛑 TTS stopped")
+                print("🛑 Stopping TTS playback...")
+                process.terminate()
+                try:
+                    process.wait(timeout=0.3) # Faster timeout for real-time
+                except subprocess.TimeoutExpired:
+                    process.kill()
             except Exception as e:
                 print(f"⚠️ Error stopping TTS: {e}")
-            finally:
-                self.current_mpv_process = None
+        
+        self.current_mpv_process = None
 
     def speak(self, text, async_mode=True):
         """
-        Speak text using Edge-TTS with robust file-based playback.
+        Speak text using Edge-TTS with robust streaming playback.
         Supports #PAUSE(x) tokens.
         """
         if not text or not text.strip():
             return
+        
+        self._stop_requested = False # Reset flag for new playback
         
         # Add to history
         self.conversation_manager.add_turn("assistant", text)
@@ -266,7 +274,9 @@ class VoiceController:
         
         # Stop any currently playing audio before starting new one
         self.stop_speaking()
-
+        
+        self._stop_requested = False # Reset flag for new playback AFTER stopping previous
+        
         if async_mode:
             threading.Thread(
                 target=self._speak_sync,
@@ -285,65 +295,103 @@ class VoiceController:
 
     async def _async_speak(self, text):
         """
-        Async TTS: Robust file-based playback with #PAUSE support.
-        Optimized for latency using RAM disk and tuned player flags.
+        Async TTS: High-performance streaming with sentence splitting and #PAUSE support.
+        Pipes audio directly to the player for minimal latency (No disk I/O).
         """
         try:
-            # 1. Parse #PAUSE(x) tokens
-            tokens = re.split(r'(#PAUSE\([\d\.]+\))', text)
+            # 1. Parse tokens (#PAUSE and Sentences)
+            # First split by #PAUSE tokens
+            raw_tokens = re.split(r'(#PAUSE\([\d\.]+\))', text)
             
-            for token in tokens:
-                # Check if it's a pause token
-                pause_match = re.match(r'#PAUSE\(([\d\.]+)\)', token)
+            # Further split non-pause tokens into sentences to start speaking faster
+            chunks = [s for s in raw_tokens if s.strip()] # Filter empty
+            
+            # Simple splitter for now
+            final_chunks = []
+            for chunk in chunks:
+                if re.match(r'#PAUSE\(([\d\.]+)\)', chunk):
+                    final_chunks.append(chunk)
+                else:
+                    sentences = re.split(r'(?<=[.!?])\s+', chunk)
+                    final_chunks.extend([s for s in sentences if s.strip()])
+            
+            print(f"🎙️ Streaming TTS: Split into {len(final_chunks)} chunks")
+
+            for i, chunk in enumerate(final_chunks):
+                # Check for interrupted flag or new playback
+                if hasattr(self, '_stop_requested') and self._stop_requested:
+                    break
+
+                pause_match = re.match(r'#PAUSE\(([\d\.]+)\)', chunk)
                 if pause_match:
                     duration = float(pause_match.group(1))
-                    time.sleep(duration)
+                    await asyncio.sleep(duration)
                     continue
-                
-                if not token.strip():
+
+                if not chunk.strip():
                     continue
-                
-                # 2. Generate audio to file (RAM DISK)
-                # Use unique name to allow parallel generation if needed
-                filename = os.path.join(self.tts_temp_dir, f"nova_tts_{int(time.time()*1000)}_{random.randint(0,1000)}.mp3")
-                
-                communicate = Communicate(token, self.EDGE_VOICE, rate=self.EDGE_RATE)
-                await communicate.save(filename)
-                
-                # 3. Play audio file (blocking until done)
-                # Optimized flags for lowest latency
-                # 3. Play audio file (blocking until done, but interruptible)
-                # Optimized flags for lowest latency
+
+                # 2. Detect optimal player command
+                cmd = None
                 if shutil.which("mpv"):
-                    self.current_mpv_process = subprocess.Popen(
-                        ["mpv", 
-                         "--no-terminal", 
-                         "--vo=null",  # No video output
-                         "--audio-buffer=0",  # Minimize buffer
-                         "--no-cache", 
-                         "--volume=100", 
-                         filename],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL
-                    )
+                    # Ultra-low latency mpv config
+                    cmd = ["mpv", "--no-terminal", "--vo=null", "--audio-buffer=0", 
+                           "--cache=no", "--demuxer-max-bytes=128k", "--volume=100", "-"]
                 elif shutil.which("ffplay"):
-                    self.current_mpv_process = subprocess.Popen(
-                        ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", filename],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL
-                    )
+                    cmd = ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", 
+                           "-fflags", "nobuffer", "-i", "pipe:0"]
                 
-                # Wait for process to finish
-                if self.current_mpv_process:
-                    self.current_mpv_process.wait()
-                    self.current_mpv_process = None
+                if not cmd:
+                    print("⚠️ No audio player found for streaming.")
+                    break
+
+                # 3. Start player process
+                # Increase demuxer-thread-priority for smooth streaming
+                self.current_mpv_process = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
                 
-                # Clean up
-                if os.path.exists(filename):
-                    os.remove(filename)
+                # 4. Stream from Edge-TTS directly to player stdin with retries
+                retries = 2
+                while retries > 0:
+                    try:
+                        print(f"🎬 Starting stream for chunk {i}: '{chunk[:20]}...' (Retries: {2-retries})")
+                        communicate = Communicate(chunk, self.EDGE_VOICE, rate=self.EDGE_RATE)
+                        chunk_count = 0
+                        async for chunk_data in communicate.stream():
+                            if chunk_data["type"] == "audio":
+                                chunk_count += 1
+                                if self.current_mpv_process and self.current_mpv_process.stdin:
+                                    try:
+                                        self.current_mpv_process.stdin.write(chunk_data["data"])
+                                        self.current_mpv_process.stdin.flush()
+                                    except (BrokenPipeError, IOError):
+                                        print(f"⚠️ Player stdin broken at chunk {chunk_count}")
+                                        break
+                        
+                        print(f"✅ Stream complete for chunk {i} ({chunk_count} audio chunks)")
+                        break # Success
+                    except Exception as e:
+                        retries -= 1
+                        print(f"⚠️ Streaming retry {2-retries} due to: {e}")
+                        if retries == 0:
+                            print(f"❌ Failed to stream chunk {i} after multiple attempts.")
+                        await asyncio.sleep(0.5)
+                
+                # 5. Wait for playback to finish
+                if self.current_mpv_process and self.current_mpv_process.stdin:
+                    try:
+                        self.current_mpv_process.stdin.close()
+                        self.current_mpv_process.wait()
+                    except:
+                        pass
+                self.current_mpv_process = None
                     
         except Exception as e:
-            print(f"❌ Edge-TTS playback error: {e}")
+            print(f"❌ Edge-TTS high-performance streaming error: {e}")
 
     def chat_with_nova(self, text):
         """

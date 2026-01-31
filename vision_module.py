@@ -37,8 +37,8 @@ class VisionController:
         self.cap = None
         self._init_camera(camera_index)
         
-        self.frame_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        self.frame_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.frame_height = config.CAMERA_HEIGHT
+        self.frame_width = config.CAMERA_WIDTH
         self.tracker = None
         
         # Re-acquisition state
@@ -61,6 +61,8 @@ class VisionController:
         Robust camera initialization - tries multiple indices if needed.
         """
         indices_to_try = [camera_index] if camera_index is not None else config.CAMERA_INDICES
+        if isinstance(indices_to_try, int):
+            indices_to_try = [indices_to_try]
         
         for idx in indices_to_try:
             print(f"🔍 Trying camera index {idx}...")
@@ -95,11 +97,16 @@ class VisionController:
         Sends a single frame to the Gemini model for detection.
         Returns a bounding box tuple (x, y, w, h) or None if not found.
         """
-        cv2.imwrite(config.TEMP_IMAGE_FILE, frame, [cv2.IMWRITE_PNG_COMPRESSION, 0])  # No compression
+        import io
         
         try:
-            with open(config.TEMP_IMAGE_FILE, "rb") as f:
-                image_bytes = f.read()
+            # OPTIMIZATION: Use BytesIO instead of writing to disk
+            is_success, buffer = cv2.imencode(".png", frame)
+            if not is_success:
+                print("❌ Failed to encode frame")
+                return None
+            
+            image_bytes = io.BytesIO(buffer).read()
             
             response = self.gemini_client.models.generate_content(
                 model=config.MODEL_ID,
@@ -109,19 +116,20 @@ class VisionController:
                 ]
             )
             
-            os.remove(config.TEMP_IMAGE_FILE)
-            
             # Clean and parse the model's JSON response
-            match = re.search(r"```json\s*([\s\S]*?)\s*```", response.text)
-            cleaned_text = match.group(1) if match else response.text.strip()
+            cleaned_text = self._extract_json(response.text)
+            if not cleaned_text:
+                return None
+                
             detections = json.loads(cleaned_text)
             
-            if not detections:
+            if not detections or not isinstance(detections, list):
                 return None  # Object not found
             
             det = detections[0]
             y_min, x_min, y_max, x_max = det["box_2d"]
             
+            # Use instance dimensions (respecting config)
             x1 = int((x_min / 1000) * self.frame_width)
             y1 = int((y_min / 1000) * self.frame_height)
             x2 = int((x_max / 1000) * self.frame_width)
@@ -131,9 +139,22 @@ class VisionController:
         
         except Exception as e:
             print(f"❌ Error during Gemini API call: {e}")
-            if os.path.exists(config.TEMP_IMAGE_FILE):
-                os.remove(config.TEMP_IMAGE_FILE)
             return None
+
+    def _extract_json(self, text):
+        """Robustlly extract JSON from model response."""
+        # Method 1: Markdown block
+        match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
+        if match:
+            return match.group(1).strip()
+        
+        # Method 2: Direct array/object
+        match = re.search(r'\[[\s\S]*\]', text)
+        if match:
+            return match.group(0).strip()
+            
+        # Method 3: Clean trim
+        return text.strip()
     
     def initialize_tracker(self):
         """
@@ -284,19 +305,15 @@ class VisionController:
     def _detect_multi_objects_with_gemini(self, frame, prompt):
         """
         Sends a frame to Gemini for multi-object detection.
-        
-        Args:
-            frame: Video frame
-            prompt: Custom detection prompt
-        
-        Returns:
-            List of detection dicts or empty list
         """
-        cv2.imwrite(config.TEMP_IMAGE_FILE, frame, [cv2.IMWRITE_PNG_COMPRESSION, 0])  # No compression
+        import io
         
         try:
-            with open(config.TEMP_IMAGE_FILE, "rb") as f:
-                image_bytes = f.read()
+            is_success, buffer = cv2.imencode(".png", frame)
+            if not is_success:
+                return []
+                
+            image_bytes = io.BytesIO(buffer).read()
             
             response = self.gemini_client.models.generate_content(
                 model=config.MODEL_ID,
@@ -306,29 +323,14 @@ class VisionController:
                 ],
                 config=types.GenerateContentConfig(
                     temperature=0.5,
-                    thinking_config=types.ThinkingConfig(thinking_budget=0)  # Fast for spatial tasks
+                    thinking_config=types.ThinkingConfig(thinking_budget=0)
                 )
             )
             
-            os.remove(config.TEMP_IMAGE_FILE)
+            cleaned_text = self._extract_json(response.text)
+            if not cleaned_text:
+                return []
             
-            # Parse JSON response (removed verbose debug for performance)
-            detections = None
-            
-            # Method 1: Extract from ```json code block
-            match = re.search(r"```json\s*([\s\S]*?)\s*```", response.text)
-            if match:
-                cleaned_text = match.group(1).strip()
-            else:
-                # Method 2: Extract JSON array directly
-                match = re.search(r'\[[\s\S]*\]', response.text)
-                if match:
-                    cleaned_text = match.group(0).strip()
-                else:
-                    # Method 3: Use full response
-                    cleaned_text = response.text.strip()
-            
-            # Parse JSON
             detections = json.loads(cleaned_text)
             
             if isinstance(detections, list):
@@ -337,16 +339,8 @@ class VisionController:
             else:
                 return []
         
-        except json.JSONDecodeError as e:
-            print(f"❌ JSON parsing error: {e}")
-            print(f"   Attempted to parse: {cleaned_text[:200] if 'cleaned_text' in locals() else 'N/A'}")
-            if os.path.exists(config.TEMP_IMAGE_FILE):
-                os.remove(config.TEMP_IMAGE_FILE)
-            return []
         except Exception as e:
             print(f"❌ Error during Gemini multi-object detection: {e}")
-            if os.path.exists(config.TEMP_IMAGE_FILE):
-                os.remove(config.TEMP_IMAGE_FILE)
             return []
     
     def _async_reacquire_multi_worker(self, frame, prompt):
@@ -398,18 +392,14 @@ class VisionController:
     def get_scene_description(self, frame):
         """
         Get AI description of the entire scene.
-        
-        Args:
-            frame: Video frame
-        
-        Returns:
-            Description string or None
         """
-        cv2.imwrite(config.TEMP_IMAGE_FILE, frame, [cv2.IMWRITE_PNG_COMPRESSION, 0])  # No compression
-        
+        import io
         try:
-            with open(config.TEMP_IMAGE_FILE, "rb") as f:
-                image_bytes = f.read()
+            is_success, buffer = cv2.imencode(".png", frame)
+            if not is_success:
+                return None
+                
+            image_bytes = io.BytesIO(buffer).read()
             
             response = self.gemini_client.models.generate_content(
                 model=config.MODEL_ID,
@@ -419,14 +409,10 @@ class VisionController:
                 ]
             )
             
-            os.remove(config.TEMP_IMAGE_FILE)
-            
             return response.text.strip()
         
         except Exception as e:
             print(f"❌ Error getting scene description: {e}")
-            if os.path.exists(config.TEMP_IMAGE_FILE):
-                os.remove(config.TEMP_IMAGE_FILE)
             return None
     
     def _async_describe_worker(self, frame, voice_controller):
@@ -452,10 +438,13 @@ class VisionController:
 
     def _async_qa_worker(self, frame, question, voice_controller, history_context=""):
         """Worker for async Visual Q&A."""
-        cv2.imwrite(config.TEMP_IMAGE_FILE, frame, [cv2.IMWRITE_PNG_COMPRESSION, 0])  # No compression
+        import io
         try:
-            with open(config.TEMP_IMAGE_FILE, "rb") as f:
-                image_bytes = f.read()
+            is_success, buffer = cv2.imencode(".png", frame)
+            if not is_success:
+                return
+                
+            image_bytes = io.BytesIO(buffer).read()
             
             # Construct prompt with history
             prompt = f"""
@@ -477,7 +466,6 @@ class VisionController:
                 ]
             )
             
-            os.remove(config.TEMP_IMAGE_FILE)
             answer = response.text.strip()
             
             print(f"\n❓ Question: {question}")
@@ -490,8 +478,6 @@ class VisionController:
             print(f"❌ Error in Visual Q&A: {e}")
             if voice_controller:
                 voice_controller.speak("Sorry, I couldn't answer that.", async_mode=True)
-            if os.path.exists(config.TEMP_IMAGE_FILE):
-                os.remove(config.TEMP_IMAGE_FILE)
 
     def ask_about_scene(self, frame, question, voice_controller=None, history_context=""):
         """
