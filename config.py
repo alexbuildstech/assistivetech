@@ -22,8 +22,8 @@ _load_env_simple()
 # GEMINI API CONFIGURATION
 # ============================================================================
 API_KEY = os.getenv("GOOGLE_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
-MODEL_ID = "models/gemini-2.0-flash-exp"  # Updated to latest flash-exp
-GENERAL_CHAT_MODEL = "models/gemini-2.0-flash-exp" 
+MODEL_ID = "models/gemini-2.0-flash"  # Use stable Gemini 2.0 Flash
+GENERAL_CHAT_MODEL = "models/gemini-2.0-flash" 
 
 # ============================================================================
 # GROQ API CONFIGURATION (for advanced Whisper STT & Routing)
