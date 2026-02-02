@@ -445,6 +445,37 @@ class VoiceController:
             print("[VOICE] Fast Path: Visual Query detected")
             return {"intent": "visual_qa", "params": {"question": text}}
 
+        # COMMAND PATH: Check for specific navigation/system commands
+        # 1. Track/Find Object
+        match = re.search(r"(track|find|follow|locate|search for)\s+(?:the\s+)?(.+)", lower_text)
+        if match:
+            obj_name = match.group(2).strip()
+            # Remove punc
+            obj_name = re.sub(r'[^\w\s]', '', obj_name)
+            print(f"[VOICE] Command Detected: Track '{obj_name}'")
+            return {"intent": "track_object", "params": {"object": obj_name}}
+        
+        # 2. Mode Operations
+        if "navigation" in lower_text or "track mode" in lower_text:
+            return {"intent": "mode_navigation"}
+        elif "obstacle" in lower_text or "avoid" in lower_text:
+            return {"intent": "mode_obstacle"}
+        elif "social" in lower_text or "people" in lower_text:
+            return {"intent": "mode_social"}
+        elif "explore" in lower_text or "exploration" in lower_text:
+            return {"intent": "mode_exploration"}
+        
+        # 3. Stop/Reset
+        if "stop" in lower_text or "quit" in lower_text or "cancel" in lower_text:
+             if "tracking" in lower_text or "stop" == lower_text:
+                 return {"intent": "stop_tracking"}
+             if "quit" in lower_text:
+                 return {"intent": "quit"}
+
+        # 4. Help
+        if "help" in lower_text or "what can you do" in lower_text:
+            return {"intent": "help"}
+
         # SLOW PATH: Ask Gemini (Chat Model)
         # It will reply with "VISUAL_QUERY" if it needs vision, or the actual chat response.
         if not self.gemini_chat_client:

@@ -18,7 +18,7 @@ try:
     from google.genai import types
     GENAI_AVAILABLE = True
 except ImportError as e:
-            print(f"[ERROR] Missing required library: {e.name}. Please run 'pip install google-generativeai'")
+    print(f"[ERROR] Missing required library: {e.name}. Please run 'pip install google-generativeai'")
     genai = None
     types = None
     GENAI_AVAILABLE = False
@@ -67,6 +67,16 @@ class VisionController:
         
         print(f"[VISION] Camera initialized | Resolution: {self.frame_width}x{self.frame_height}")
     
+        # Active Capture State
+        self.latest_frame = None
+        self.frame_lock = threading.Lock()
+        self.capture_active = False
+        self.capture_thread = None
+        
+        # Start capture thread if camera is initialized
+        if self.cap and self.cap.isOpened():
+            self._start_capture_thread()
+            
     def _init_camera(self, camera_index):
         """
         Robust camera initialization - tries multiple indices if needed.
@@ -88,9 +98,9 @@ class VisionController:
                     # OPTIMIZATION: Use MJPG for smoother high-res video
                     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
                     
-                    # Set resolution to 1280x720 as requested
-                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                    # Set resolution to config values (optimized for hardware)
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.CAMERA_WIDTH)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.CAMERA_HEIGHT)
                     
                     actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                     actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -101,7 +111,39 @@ class VisionController:
                 else:
                     cap.release()
             
-        raise IOError(f"Could not access any camera. Tried indices: {indices_to_try}")
+        print("[ERROR] Could not access any camera. Continuing in headless mode.")
+        self.cap = None
+
+    def _start_capture_thread(self):
+        """Starts the background frame capture thread."""
+        self.capture_active = True
+        self.capture_thread = threading.Thread(target=self._capture_worker, daemon=True)
+        self.capture_thread.start()
+        print("[VISION] Active capture thread started.")
+
+    def _capture_worker(self):
+        """Continuously captures frames to ensure zero latency."""
+        while self.capture_active and self.cap and self.cap.isOpened():
+            ret, frame = self.cap.read()
+            if ret:
+                with self.frame_lock:
+                    self.latest_frame = frame
+            else:
+                time.sleep(0.01) # Avoid busy loop on failure
+                
+    def read_frame(self):
+        """Returns the latest captured frame instantly."""
+        with self.frame_lock:
+            if self.latest_frame is not None:
+                return True, self.latest_frame.copy()
+            else:
+                return False, None
+    
+    def stop_capture(self):
+        """Stops the active capture thread."""
+        self.capture_active = False
+        if self.capture_thread:
+            self.capture_thread.join(timeout=1.0)
     
     def _detect_object_with_gemini(self, frame):
         """

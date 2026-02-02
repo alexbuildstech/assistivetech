@@ -1,4 +1,4 @@
-"""
+ """
 Assistive Navigation System
 Enhanced main application with voice control, multi-object tracking,
 intelligent mode switching, and scene understanding.
@@ -251,6 +251,23 @@ def main():
                 print(f"   [LEARNING] Learned: {stats['total_detections']} detections, {stats['unique_labels']} object types")
                 print(f"   [LEARNING] Cache: {stats['cached_images']} images ({stats['cache_size_mb']:.1f} MB)")
             
+            # === Initialize Hardware Interface ===
+            print("\n[5/6] Initializing Hardware Interface (Arduino)...")
+            hardware_interface = None
+            try:
+                from hardware_interface import HardwareInterface, DummyHardwareInterface
+                if config.ENABLE_HARDWARE:
+                    hardware_interface = HardwareInterface()
+                    if not hardware_interface.is_connected:
+                        print("⚠️ Hardware connection failed. Using dummy interface.")
+                        hardware_interface = DummyHardwareInterface()
+                else:
+                    hardware_interface = DummyHardwareInterface()
+            except Exception as e:
+                print(f"⚠️ Hardware init failed: {e}")
+                from hardware_interface import DummyHardwareInterface
+                hardware_interface = DummyHardwareInterface()
+
             # === Initialize Shared State ===
             print("\n[6/6] Initializing Shared State & Audio...")
             import threading
@@ -502,6 +519,15 @@ def main():
                     
                     if key == ord('q') or key == ord('Q'):
                         break
+                    
+                    # Check Hardware Inputs
+                    if hardware_interface:
+                        pressure = hardware_interface.get_pressure()
+                        if pressure > config.PRESSURE_THRESHOLD:
+                             print(f"************ SQUEEZE DETECTED ({pressure}) ************")
+                             # Potential action: Trigger Stop or Record?
+                             # For now just log it to prove it works.
+                        
                     elif key == ord('f') or key == ord('F'):
                         print("⚡ Triggering detection...")
                         shared_state.add_command("detect")

@@ -103,7 +103,7 @@ DETECTION_PROMPT = DETECTION_PROMPT_MULTI_OBJECT
 # ============================================================================
 # CAMERA CONFIGURATION
 # ============================================================================
-CAMERA_INDICES = [0]  # Try these camera indices in order
+CAMERA_INDICES = [0, 1, 2]  # Try these camera indices in order
 TEMP_IMAGE_FILE = "detection_frame.png"
 CAMERA_WIDTH = 1280
 CAMERA_HEIGHT = 720
@@ -137,6 +137,14 @@ MAX_VOLUME = 1.0
 # ============================================================================
 # Cooldown between re-acquisition attempts to avoid API spam (OPTIMIZED for i3 hardware)
 REACQUIRE_COOLDOWN_SECONDS = 0.3  # Aggressive for lower latency
+
+# ============================================================================
+# HARDWARE / PREIPHERALS CONFIGURATION
+# ============================================================================
+ENABLE_HARDWARE = True
+SERIAL_PORT = "/dev/ttyACM0"  # Default for Arduino on Linux
+SERIAL_BAUD = 115200
+PRESSURE_THRESHOLD = 500  # Threshold to trigger "Haptic/Squeeze" event
 
 # ============================================================================
 # VISUAL DEBUG OVERLAY CONFIGURATION
@@ -352,12 +360,14 @@ import platform
 IS_ARM = platform.machine().startswith('aarch') or platform.machine().startswith('arm')
 
 if IS_ARM:
-    print("[CONFIG] ARM processor detected - enabling Rock 5C optimizations")
+    print("🚀 ARM processor detected - enabling Rock 5C optimizations")
     # Override settings for performance
     AUDIO_BUFFER_SIZE = ROCK_5C_AUDIO_BUFFER
     REACQUIRE_COOLDOWN_SECONDS = ROCK_5C_MIN_DETECTION_INTERVAL
+    CAMERA_WIDTH = ROCK_5C_CAMERA_WIDTH
+    CAMERA_HEIGHT = ROCK_5C_CAMERA_HEIGHT
 else:
-    # For x86/desktop, use ultra-low latency settings for real-time
-    AUDIO_BUFFER_SIZE = 512  # Ultra-low latency (was 2048)
-    REACQUIRE_COOLDOWN_SECONDS = 0.5  # Faster re-acquisition
-    print(f"[CONFIG] Real-time mode enabled (buffer={AUDIO_BUFFER_SIZE}, cooldown={REACQUIRE_COOLDOWN_SECONDS}s)")
+    # For x86/desktop (i3 10th gen), optimize for lowest latency
+    AUDIO_BUFFER_SIZE = 2048  # Balanced - reduced from aggressive 1024 to prevent underflows
+    REACQUIRE_COOLDOWN_SECONDS = 0.5  # Retain previous value for x86
+    print(f"💻 x86 detected - using optimized settings (buffer={AUDIO_BUFFER_SIZE}, cooldown={REACQUIRE_COOLDOWN_SECONDS}s)")
