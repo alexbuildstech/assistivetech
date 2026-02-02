@@ -1,6 +1,7 @@
 """
-Enhanced Audio Controller with Multi-Object Support.
+Enhanced Audio Controller with Multi-Object Support - ULTRA LOW LATENCY VERSION.
 Generates unique audio signatures for different object types.
+Optimized for real-time performance with minimal allocations.
 """
 
 import numpy as np
@@ -16,34 +17,20 @@ class AudioSignatureGenerator:
     def generate_waveform(waveform_type, frequency, duration, sample_rate):
         """
         Generate a waveform of given type.
-        
-        Args:
-            waveform_type: "sine", "square", "sawtooth", "pulse"
-            frequency: Frequency in Hz
-            duration: Duration in seconds
-            sample_rate: Sample rate in Hz
-        
-        Returns:
-            numpy array of audio samples
         """
         t = np.linspace(0, duration, int(sample_rate * duration), False)
         
         if waveform_type == "sine":
             wave = np.sin(2 * np.pi * frequency * t)
-        
         elif waveform_type == "square":
             wave = np.sign(np.sin(2 * np.pi * frequency * t))
-        
         elif waveform_type == "sawtooth":
             wave = 2 * (t * frequency - np.floor(0.5 + t * frequency))
-        
         elif waveform_type == "pulse":
-            # Heartbeat-like pulse
-            pulse_freq = frequency / 60  # Convert BPM to Hz
+            pulse_freq = frequency / 60
             wave = np.zeros_like(t)
             pulse_indices = (t * pulse_freq) % 1.0 < 0.1
             wave[pulse_indices] = np.sin(2 * np.pi * 10 * t[pulse_indices])
-        
         else:
             wave = np.sin(2 * np.pi * frequency * t)
         
@@ -62,8 +49,8 @@ class AudioSignatureGenerator:
 
 class MultiAudioController:
     """
-    Advanced audio controller supporting multiple simultaneous spatial audio sources.
-    Each source can have a unique audio signature.
+    Ultra-low latency audio controller supporting multiple simultaneous spatial audio sources.
+    Optimized for real-time with pre-allocated buffers and minimal lock contention.
     """
     
     def __init__(self):
@@ -75,15 +62,20 @@ class MultiAudioController:
         self.signatures = {}
         self._preload_signatures()
         
-        # Active audio sources: {object_id: {azimuth, volume, signature_name, position}}
+        # Active audio sources
         self.sources = {}
-        self.sources_lock = threading.Lock()
+        self.sources_lock = threading.RLock()  # Reentrant for safety
         
-        #Streaming
+        # Pre-allocated output buffers (avoid repeated allocations in callback)
+        self._left_buffer = np.zeros(self.buffer_size, dtype=np.float32)
+        self._right_buffer = np.zeros(self.buffer_size, dtype=np.float32)
+        self._index_buffer = np.zeros(self.buffer_size, dtype=np.int32)
+        
+        # Stream
         self.stream = None
         self.running = False
         
-        print(f"🔊 Multi-AudioController initialized | Sample Rate: {self.sample_rate} Hz")
+        print(f"[AUDIO] Multi-AudioController initialized | Sample Rate: {self.sample_rate} Hz")
     
     def _preload_signatures(self):
         """Pre-generate audio signatures for all object types."""
@@ -97,24 +89,32 @@ class MultiAudioController:
             )
             
             self.signatures[obj_type] = signature
-            print(f"  ♪ Loaded signature: {obj_type} ({waveform_type} @ {frequency} Hz)")
+            print(f"  [AUDIO] Loaded signature: {obj_type} ({waveform_type} @ {frequency} Hz)")
     
     def _audio_callback(self, outdata, frames, time_info, status):
         """
-        Callback for sounddevice stream - mixes multiple audio sources.
+        Ultra-low latency audio callback - minimal allocations, vectorized operations.
         """
         if status:
             print(f"Audio stream status: {status}")
         
-        # Initialize output buffer
-        left_channel = np.zeros(frames, dtype=np.float32)
-        right_channel = np.zeros(frames, dtype=np.float32)
+        # Reset pre-allocated buffers (fast)
+        self._left_buffer[:frames] = 0
+        self._right_buffer[:frames] = 0
         
-        # Mix all active sources
+        # Quick check if any sources active (avoid lock if none)
+        if not self.sources:
+            outdata[:frames, 0] = self._left_buffer[:frames]
+            outdata[:frames, 1] = self._right_buffer[:frames]
+            return
+        
+        # Copy sources to local for lock-free processing
         with self.sources_lock:
-            # Create a localized copy of source data to minimize lock time
             active_sources = list(self.sources.items())
-            
+        
+        max_val = 0.0
+        
+        # Process each source
         for obj_id, source_data in active_sources:
             azimuth = source_data.get("azimuth", 0)
             volume = source_data.get("volume", 0.5)
@@ -125,64 +125,81 @@ class MultiAudioController:
             signature = self.signatures.get(signature_name, self.signatures["default"])
             n_sig_samples = len(signature)
             
-            # Vectorized sample extraction
-            indices = np.arange(position, position + frames) % n_sig_samples
-            samples = signature[indices]
+            # Vectorized sample extraction using pre-allocated index buffer
+            # Create indices efficiently
+            end_pos = position + frames
+            if end_pos <= n_sig_samples:
+                # No wrap needed
+                samples = signature[position:end_pos]
+            else:
+                # Handle wrap-around
+                part1_len = n_sig_samples - position
+                samples = np.concatenate([
+                    signature[position:],
+                    signature[:frames - part1_len]
+                ])
             
-            # Update position (requires lock update later or atomic storage)
-            source_data["position"] = position + frames
+            # Update position (defer lock until after processing)
+            new_position = int((position + frames) % n_sig_samples)
+            source_data["position"] = new_position
             
-            # Calculate stereo pan
-            pan = np.clip(azimuth / config.MAX_AZIMUTH_DEGREES, -1.0, 1.0)
-            angle = (pan + 1.0) * np.pi / 4
+            # Calculate stereo pan (optimized)
+            pan = max(-1.0, min(1.0, azimuth / config.MAX_AZIMUTH_DEGREES))
+            angle = (pan + 1.0) * 0.785398  # pi/4
             left_gain = np.cos(angle) * volume
             right_gain = np.sin(angle) * volume
             
-            # Mix into channels (vectorized)
-            left_channel += samples * left_gain
-            right_channel += samples * right_gain
+            # Mix into buffers
+            self._left_buffer[:frames] += samples * left_gain
+            self._right_buffer[:frames] += samples * right_gain
+            
+            # Track max for normalization
+            max_val = max(max_val, np.abs(self._left_buffer[:frames]).max(),
+                         np.abs(self._right_buffer[:frames]).max())
         
-        # Normalize to prevent clipping
-        max_val = max(np.abs(left_channel).max(), np.abs(right_channel).max())
+        # Normalize if needed (single pass)
         if max_val > 1.0:
-            left_channel /= max_val
-            right_channel /= max_val
+            self._left_buffer[:frames] /= max_val
+            self._right_buffer[:frames] /= max_val
         
-        # Output stereo
-        outdata[:, 0] = left_channel
-        outdata[:, 1] = right_channel
+        # Output stereo (direct assignment)
+        outdata[:frames, 0] = self._left_buffer[:frames]
+        outdata[:frames, 1] = self._right_buffer[:frames]
     
     def start_stream(self, shared_state=None):
         """Start the audio stream."""
         if self.running:
-            print("⚠️ Audio stream already running.")
             return
         
         self.shared_state = shared_state
         
         try:
+            # Use smaller buffer for lower latency
+            buffer_size = min(512, self.buffer_size)  # Ultra-low latency
+            
             self.stream = sd.OutputStream(
                 samplerate=self.sample_rate,
                 channels=2,
-                blocksize=self.buffer_size,
-                callback=self._audio_callback
+                blocksize=buffer_size,
+                callback=self._audio_callback,
+                latency='low'  # Explicit low latency mode
             )
             self.stream.start()
             self.running = True
-            print("▶️ Multi-audio stream started.")
+            print(f"[AUDIO] Multi-audio stream started (buffer={buffer_size}, latency=low)")
         
         except Exception as e:
-            print(f"❌ Failed to start audio stream: {e}")
+            print(f"[ERROR] Failed to start audio stream: {e}")
     
     def pause_stream(self):
         """Pause the audio stream."""
         self.stop_stream()
-        print("⏸️ Multi-audio stream paused.")
+        print("[AUDIO] Multi-audio stream paused.")
 
     def resume_stream(self):
         """Resume the audio stream."""
         self.start_stream(self.shared_state)
-        print("▶️ Multi-audio stream resumed.")
+        print("[AUDIO] Multi-audio stream resumed.")
 
     def stop_stream(self):
         """Stop the audio stream."""
@@ -190,31 +207,26 @@ class MultiAudioController:
             return
         
         try:
-            self.stream.stop()
-            self.stream.close()
+            if self.stream:
+                self.stream.stop()
+                self.stream.close()
+                self.stream = None
             self.running = False
-            print("⏹️ Multi-audio stream stopped.")
+            print("[AUDIO] Multi-audio stream stopped.")
         
         except Exception as e:
-            print(f"❌ Error stopping audio stream: {e}")
+            print(f"[ERROR] Error stopping audio stream: {e}")
     
     def update_source(self, obj_id, azimuth, volume, signature_name="default"):
-        """
-        Update or add an audio source.
-        
-        Args:
-            obj_id: Unique object identifier
-            azimuth: Horizontal angle in degrees
-            volume: Volume level 0.0-1.0
-            signature_name: Audio signature type
-        """
+        """Update or add an audio source."""
         with self.sources_lock:
             if obj_id not in self.sources:
                 self.sources[obj_id] = {"position": 0}
             
             self.sources[obj_id].update({
-                "azimuth": np.clip(azimuth, -config.MAX_AZIMUTH_DEGREES, config.MAX_AZIMUTH_DEGREES),
-                "volume": np.clip(volume, 0.0, 1.0),
+                "azimuth": max(-config.MAX_AZIMUTH_DEGREES, 
+                              min(config.MAX_AZIMUTH_DEGREES, azimuth)),
+                "volume": max(0.0, min(1.0, volume)),
                 "signature": signature_name
             })
     

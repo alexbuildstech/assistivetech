@@ -20,7 +20,6 @@ import shutil
 import config
 import re
 import os
-import random
 
 from conversation_manager import ConversationManager
 
@@ -71,7 +70,7 @@ class VoiceController:
         # TTS Temp Directory (Use RAM disk if available for speed)
         self.tts_temp_dir = "/dev/shm" if os.path.exists("/dev/shm") else "/tmp"
         
-        print("🔊 Advanced VoiceController initialized")
+        print("[VOICE] Advanced VoiceController initialized")
         print(f"   STT: Groq Whisper (whisper-large-v3-turbo)")
         print(f"   TTS: Edge-TTS ({self.EDGE_VOICE})")
         print(f"   History: conversation_history.json")
@@ -80,17 +79,17 @@ class VoiceController:
     def _initialize_groq_client(self):
         """Initialize Groq API client for Whisper STT."""
         if not self.GROQ_API_KEY:
-            print("❌ GROQ_API_KEY not set. Voice recognition disabled.")
+            print("[ERROR] GROQ_API_KEY not set. Voice recognition disabled.")
             return None
         
         try:
             client = Groq(api_key=self.GROQ_API_KEY)
             # Test connection
             client.models.list()
-            print("✅ Groq client initialized successfully")
+            print("[VOICE] Groq client initialized successfully")
             return client
         except Exception as e:
-            print(f"❌ Failed to initialize Groq client: {e}")
+            print(f"[ERROR] Failed to initialize Groq client: {e}")
             return None
     
     def _get_player_command(self):
@@ -104,22 +103,22 @@ class VoiceController:
         elif shutil.which("mpg123"):
             return ["mpg123", "-q", "--buffer", "8192", "-"]
         else:
-            print("⚠️ No audio player found (install mpv, ffmpeg, or mpg123)")
+            print("[WARNING] No audio player found (install mpv, ffmpeg, or mpg123)")
             return None
     
     def start_recording(self):
         """Start recording audio - PUBLIC method for direct calls."""
         if self.is_recording:
-            print("⚠️ Already recording")
+            print("[WARNING] Already recording")
             return False
         
         if not self.groq_client:
-            print("❌ Groq client not initialized. Cannot record.")
+            print("[ERROR] Groq client not initialized. Cannot record.")
             return False
         
         self.is_recording = True
         self.transcription_ready.clear()
-        print("🎤 Recording started (press 'S' to stop)")
+        print("[VOICE] Recording started (press 'S' to stop)")
         
         # Initialize audio buffer
         self.audio_buffer = io.BytesIO()
@@ -151,7 +150,7 @@ class VoiceController:
             return None
         
         self.is_recording = False
-        print("⏹️ Recording stopped")
+        print("[VOICE] Recording stopped")
         
         # Stop stream
         if self.stream:
@@ -164,46 +163,31 @@ class VoiceController:
             self.wave_file.close()
             self.wave_file = None
         
-        print("🧠 Transcribing...")
+        print("[VOICE] Transcribing...")
         
         # Get audio data
         self.audio_buffer.seek(0)
         audio_data = self.audio_buffer.read()
         
-        # Transcribe synchronously (blocking)
-        self._transcribe_audio(audio_data)
-        
-        # Wait for transcription to complete (with timeout)
-        if self.transcription_ready.wait(timeout=5):
-            result = self.transcribed_text
-            self.transcribed_text = None
-            return result
-        else:
-            print("❌ Transcription timeout")
-            return None
+        # Transcribe synchronously for lower latency (no thread overhead)
+        return self._transcribe_audio_sync(audio_data)
     
-    def _transcribe_audio(self, audio_data):
-        """Transcribe audio using Groq Whisper in a background thread."""
-        def run_transcription():
-            try:
-                transcription = self.groq_client.audio.transcriptions.create(
-                    file=("audio.wav", audio_data),
-                    model="whisper-large-v3-turbo",
-                    language="en"
-                )
-                
-                text = transcription.text.strip()
-                print(f"📝 Transcription: {text}")
-                
-                self.transcribed_text = text
-                self.transcription_ready.set()
-                
-            except Exception as e:
-                print(f"❌ Transcription error: {e}")
-                self.transcribed_text = None
-                self.transcription_ready.set()
-
-        threading.Thread(target=run_transcription, daemon=True).start()
+    def _transcribe_audio_sync(self, audio_data):
+        """Transcribe audio using Groq Whisper synchronously for lowest latency."""
+        try:
+            transcription = self.groq_client.audio.transcriptions.create(
+                file=("audio.wav", audio_data),
+                model="whisper-large-v3-turbo",
+                language="en"
+            )
+            
+            text = transcription.text.strip()
+            print(f"[VOICE] Transcription: {text}")
+            return text
+            
+        except Exception as e:
+            print(f"[ERROR] Transcription error: {e}")
+            return None
     
     def _initialize_gemini_chat(self):
         """Initialize Gemini client for general chat."""
@@ -212,7 +196,7 @@ class VoiceController:
             client = genai.Client(api_key=config.API_KEY)
             return client
         except Exception as e:
-            print(f"❌ Failed to initialize Gemini for chat: {e}")
+            print(f"[ERROR] Failed to initialize Gemini for chat: {e}")
             return None
 
     # Keyboard listener REMOVED - conflicts with OpenCV's waitKey()
@@ -226,7 +210,7 @@ class VoiceController:
         # Clear previous transcription
         self.transcribed_text = None
         
-        print("🎤 Waiting for voice input (press 'C' to record, 'S' to stop)...")
+        print("[VOICE] Waiting for voice input (press 'C' to record, 'S' to stop)...")
         
         # Wait for transcription to appear
         while self.transcribed_text is None:
@@ -245,14 +229,14 @@ class VoiceController:
         process = getattr(self, 'current_mpv_process', None)
         if process and process.poll() is None:
             try:
-                print("🛑 Stopping TTS playback...")
+                print("[VOICE] Stopping TTS playback...")
                 process.terminate()
                 try:
                     process.wait(timeout=0.3) # Faster timeout for real-time
                 except subprocess.TimeoutExpired:
                     process.kill()
             except Exception as e:
-                print(f"⚠️ Error stopping TTS: {e}")
+                print(f"[WARNING] Error stopping TTS: {e}")
         
         self.current_mpv_process = None
 
@@ -315,7 +299,7 @@ class VoiceController:
                     sentences = re.split(r'(?<=[.!?])\s+', chunk)
                     final_chunks.extend([s for s in sentences if s.strip()])
             
-            print(f"🎙️ Streaming TTS: Split into {len(final_chunks)} chunks")
+            print(f"[TTS] Streaming TTS: Split into {len(final_chunks)} chunks")
 
             for i, chunk in enumerate(final_chunks):
                 # Check for interrupted flag or new playback
@@ -342,7 +326,7 @@ class VoiceController:
                            "-fflags", "nobuffer", "-i", "pipe:0"]
                 
                 if not cmd:
-                    print("⚠️ No audio player found for streaming.")
+                    print("[WARNING] No audio player found for streaming.")
                     break
 
                 # 3. Start player process
@@ -358,7 +342,7 @@ class VoiceController:
                 retries = 2
                 while retries > 0:
                     try:
-                        print(f"🎬 Starting stream for chunk {i}: '{chunk[:20]}...' (Retries: {2-retries})")
+                        print(f"[TTS] Starting stream for chunk {i}: '{chunk[:20]}...' (Retries: {2-retries})")
                         communicate = Communicate(chunk, self.EDGE_VOICE, rate=self.EDGE_RATE)
                         chunk_count = 0
                         async for chunk_data in communicate.stream():
@@ -369,16 +353,16 @@ class VoiceController:
                                         self.current_mpv_process.stdin.write(chunk_data["data"])
                                         self.current_mpv_process.stdin.flush()
                                     except (BrokenPipeError, IOError):
-                                        print(f"⚠️ Player stdin broken at chunk {chunk_count}")
+                                        print(f"[WARNING] Player stdin broken at chunk {chunk_count}")
                                         break
                         
-                        print(f"✅ Stream complete for chunk {i} ({chunk_count} audio chunks)")
+                        print(f"[TTS] Stream complete for chunk {i} ({chunk_count} audio chunks)")
                         break # Success
                     except Exception as e:
                         retries -= 1
-                        print(f"⚠️ Streaming retry {2-retries} due to: {e}")
+                        print(f"[WARNING] Streaming retry {2-retries} due to: {e}")
                         if retries == 0:
-                            print(f"❌ Failed to stream chunk {i} after multiple attempts.")
+                            print(f"[ERROR] Failed to stream chunk {i} after multiple attempts.")
                         await asyncio.sleep(0.5)
                 
                 # 5. Wait for playback to finish
@@ -391,7 +375,7 @@ class VoiceController:
                 self.current_mpv_process = None
                     
         except Exception as e:
-            print(f"❌ Edge-TTS high-performance streaming error: {e}")
+            print(f"[ERROR] Edge-TTS streaming error: {e}")
 
     def chat_with_nova(self, text):
         """
@@ -402,7 +386,7 @@ class VoiceController:
             self.speak("I'm having trouble connecting to my brain.", async_mode=True)
             return
 
-        print(f"🤖 Nova thinking about: '{text}'")
+        print(f"[AI] Processing: '{text}'")
         
         # Get context
         context = self.conversation_manager.get_context_string(limit=5)
@@ -429,12 +413,12 @@ class VoiceController:
             )
             
             reply = response.text.strip()
-            print(f"🤖 Nova says: {reply}")
+            print(f"[AI] Response: {reply}")
             self.speak(reply, async_mode=True)
             
         except Exception as e:
-            print(f"❌ Nova chat error: {e}")
-            self.speak("Sorry, I spaced out for a second.", async_mode=True)
+            print(f"[ERROR] Chat error: {e}")
+            self.speak("Sorry, I encountered an error processing your request.", async_mode=True)
 
     def parse_command(self, text):
         """
@@ -446,7 +430,7 @@ class VoiceController:
         
         # Add to history
         self.conversation_manager.add_turn("user", text)
-        print(f"🧠 Processing input: '{text}'")
+        print(f"[VOICE] Processing input: '{text}'")
         
         # FAST PATH: Check for explicit visual keywords to save latency
         # (Still useful for obvious cases)
@@ -458,7 +442,7 @@ class VoiceController:
             "use the visual", "check", "analyze", "examine"
         ]
         if any(w in lower_text for w in visual_keywords):
-            print("⚡ Fast Path: Visual Query detected")
+            print("[VOICE] Fast Path: Visual Query detected")
             return {"intent": "visual_qa", "params": {"question": text}}
 
         # SLOW PATH: Ask Gemini (Chat Model)
@@ -497,18 +481,18 @@ class VoiceController:
             
             # Check for Visual Query Token
             if "VISUAL_QUERY" in reply:
-                print("👉 Route: VISUAL_QUERY (Detected by Chat Model)")
+                print("[VOICE] Route: VISUAL_QUERY (Detected by Chat Model)")
                 return {"intent": "visual_qa", "params": {"question": text}}
             
             # Otherwise, it's a normal chat response
-            print(f"👉 Route: CHAT (Direct Response)")
-            print(f"🤖 Nova says: {reply}")
+            print(f"[VOICE] Route: CHAT (Direct Response)")
+            print(f"[AI] Response: {reply}")
             
             # Return as direct response so we don't call Gemini again
             return {"intent": "direct_response", "params": {"response": reply}}
             
         except Exception as e:
-            print(f"❌ Routing error: {e}")
+            print(f"[ERROR] Routing error: {e}")
             return {"intent": "chat_with_nova", "params": {"text": text}}
 
     def get_help_text(self):

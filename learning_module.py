@@ -2,7 +2,7 @@
 Self-Learning Module for Assistive Navigation System.
 Implements persistent object memory, room layout learning, and predictive tracking.
 
-PATENT-WORTHY INNOVATION:
+Key Features:
 - Builds personalized spatial memory of user's environment
 - Predicts object locations based on historical data
 - Reduces API calls by 40-70% through intelligent caching
@@ -11,6 +11,7 @@ PATENT-WORTHY INNOVATION:
 import sqlite3
 import os
 import time
+import threading
 import cv2
 import numpy as np
 import hashlib
@@ -32,15 +33,22 @@ class LearningModule:
         # Create cache directory
         os.makedirs(self.image_cache_dir, exist_ok=True)
         
-        # Initialize database
-        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        # Initialize database with proper thread safety
+        # Use URI mode with cache for better performance
+        self.db_path_uri = f"file:{self.db_path}?cache=shared"
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False, isolation_level=None)
+        self.conn.execute("PRAGMA journal_mode=WAL")  # Write-Ahead Logging for better concurrency
+        self.conn.execute("PRAGMA synchronous=NORMAL")  # Balance safety and speed
         self._init_database()
+        
+        # Thread-local storage for database connections
+        self._local = threading.local()
         
         # Grid parameters for room mapping
         self.grid_width = config.LEARNING_GRID_WIDTH
         self.grid_height = config.LEARNING_GRID_HEIGHT
         
-        print(f"🧠 LearningModule initialized | DB: {self.db_path}")
+        print(f"[LEARNING] LearningModule initialized | DB: {self.db_path}")
         print(f"   Image cache: {self.image_cache_dir}")
         print(f"   Grid: {self.grid_width}x{self.grid_height}")
     
@@ -96,7 +104,7 @@ class LearningModule:
         """)
         
         self.conn.commit()
-        print("✅ Database tables initialized")
+        print("[LEARNING] Database tables initialized")
     
     def _compute_image_hash(self, image):
         """
@@ -158,7 +166,7 @@ class LearningModule:
             return filepath
         
         except Exception as e:
-            print(f"❌ Failed to save image: {e}")
+            print(f"[ERROR] Failed to save image: {e}")
             return None
     
     def bbox_to_grid(self, bbox, frame_width, frame_height) -> Tuple[int, int]:
@@ -215,10 +223,10 @@ class LearningModule:
             # Update room grid frequency
             self._update_room_grid(label, grid_x, grid_y)
             
-            print(f"💾 Saved: {label} at grid({grid_x},{grid_y}) conf={confidence:.2f}")
+            print(f"[LEARNING] Saved: {label} at grid({grid_x},{grid_y}) conf={confidence:.2f}")
         
         except Exception as e:
-            print(f"❌ Failed to save detection: {e}")
+            print(f"[ERROR] Failed to save detection: {e}")
     
     def _update_room_grid(self, label, grid_x, grid_y):
         """Update room grid frequency map."""
@@ -272,7 +280,7 @@ class LearningModule:
         grid_x, grid_y, freq, last_seen = result
         probability = freq / total
         
-        print(f"🎯 Prediction: {label} likely at grid({grid_x},{grid_y}) | prob={probability:.1%}")
+        print(f"[LEARNING] Prediction: {label} likely at grid({grid_x},{grid_y}) | prob={probability:.1%}")
         
         return (grid_x, grid_y, probability)
     
@@ -347,9 +355,9 @@ class LearningModule:
         """Close database connection."""
         if self.conn:
             self.conn.close()
-            print("🔒 Learning database closed")
+            print("[LEARNING] Learning database closed")
     
-    # === MEMORY RECALL FEATURE (CINEMATIC!) ===
+    # === MEMORY RECALL FEATURE ===
     
     def recall_object(self, label) -> Optional[Dict]:
         """

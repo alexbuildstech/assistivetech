@@ -20,7 +20,7 @@ class ModeController:
         self.target_object = "phone"  # Default tracking target
         self.object_manager = ObjectManager()
         
-        print(f"🎮 ModeController initialized | Mode: {self.current_mode}")
+        print(f"[MODE] ModeController initialized | Mode: {self.current_mode}")
     
     def set_mode(self, mode):
         """
@@ -33,11 +33,11 @@ class ModeController:
             True if mode changed, False if invalid mode
         """
         if mode not in config.MODE_CONFIGS:
-            print(f"❌ Invalid mode: {mode}")
+            print(f"[ERROR] Invalid mode: {mode}")
             return False
         
         if mode == self.current_mode:
-            print(f"ℹ️ Already in {mode} mode")
+            print(f"[MODE] Already in {mode} mode")
             return True
         
         old_mode = self.current_mode
@@ -47,7 +47,7 @@ class ModeController:
         self.object_manager.clear()
         
         mode_desc = config.MODE_CONFIGS[mode]["description"]
-        print(f"🔄 Mode changed: {old_mode} → {self.current_mode} ({mode_desc})")
+        print(f"[MODE] Mode changed: {old_mode} -> {self.current_mode} ({mode_desc})")
         
         return True
     
@@ -79,7 +79,7 @@ class ModeController:
             obj_name: Object name (e.g., "phone", "person", "door")
         """
         self.target_object = obj_name
-        print(f"🎯 Target object set to: {obj_name}")
+        print(f"[MODE] Target object set to: {obj_name}")
         
         # If in navigation mode, clear current objects to force new detection
         if self.current_mode == config.NavigationMode.NAVIGATION:
@@ -209,11 +209,11 @@ class ModeController:
                 if not matched:
                     # Add new object
                     obj = self.object_manager.add_object(label, new_bbox, context=context)
-                    print(f"➕ Added object #{obj.id}: {label} at {new_bbox} (Context: {context})")
+                    print(f"[MODE] Added object #{obj.id}: {label} at {new_bbox} (Context: {context})")
                     count += 1
                 
             except Exception as e:
-                print(f"❌ Error processing detection: {e}")
+                print(f"[ERROR] Error processing detection: {e}")
                 continue
         
         return count
@@ -277,8 +277,8 @@ class ModeController:
             return people[0] if people else None
         
         elif strategy == "all":
-            # Return all objects (caller should handle multiple)
-            return self.object_manager.objects
+            # Return first object or None (caller should get all objects separately)
+            return self.object_manager.objects[0] if self.object_manager.objects else None
         
         return None
     
@@ -318,7 +318,7 @@ class ModeController:
             
             # Only trigger if it's a significant threat (score > 0.3)
             if main_threat.threat_score > 0.3 and elapsed > 2.0:
-                print(f"⚠️ Main threat '{main_threat.label}' (Score: {main_threat.threat_score:.2f}) lost for {elapsed:.1f}s. Triggering re-scan.")
+                print(f"[WARNING] Main threat '{main_threat.label}' (Score: {main_threat.threat_score:.2f}) lost for {elapsed:.1f}s. Triggering re-scan.")
                 # Remove the stale object so we don't keep checking it
                 self.object_manager.remove_object(main_threat.id)
                 return True

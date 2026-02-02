@@ -10,6 +10,8 @@ import threading
 import math
 import os
 import sys
+import ctypes
+import struct
 import config
 
 # Try to import OpenAL

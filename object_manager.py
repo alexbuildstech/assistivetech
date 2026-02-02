@@ -86,7 +86,7 @@ class ObjectManager:
             (255, 0, 255),  # Magenta
             (0, 255, 255),  # Yellow
         ]
-        print("📦 ObjectManager initialized.")
+        print("[OBJECT] ObjectManager initialized.")
     
     def add_object(self, label, bbox, confidence=1.0, context=None):
         """
@@ -129,13 +129,13 @@ class ObjectManager:
         self.objects.append(obj)
         self.next_id += 1
         
-        print(f"➕ Added object #{obj.id}: {label} at {bbox}")
+        print(f"[OBJECT] Added object #{obj.id}: {label} at {bbox}")
         return obj
     
     def remove_object(self, obj_id):
         """Remove an object by ID."""
         self.objects = [obj for obj in self.objects if obj.id != obj_id]
-        print(f"➖ Removed object #{obj_id}")
+        print(f"[OBJECT] Removed object #{obj_id}")
     
     def get_object(self, obj_id):
         """Get object by ID."""
@@ -151,75 +151,90 @@ class ObjectManager:
     def clear(self):
         """Clear all tracked objects."""
         self.objects.clear()
-        print("🗑️ Cleared all objects.")
+        print("[OBJECT] Cleared all objects.")
     
     def update_trackers(self, frame):
         """
         Update all object trackers with a new frame.
-        
+
         Args:
             frame: New video frame
-        
+
         Returns:
             List of successfully tracked objects
         """
         # Early exit if no objects to track
         if not self.objects:
             return []
-        
+
+        # Cache frame dimensions and config values before the loop
+        frame_h, frame_w = frame.shape[:2]
+        frame_area = frame_h * frame_w
+        frame_area_half = frame_area * 0.5
+        frame_center_x = frame_w / 2
+        frame_half_w = frame_w / 2
+
+        # Cache config lookups
+        threat_priorities = config.THREAT_PRIORITIES
+        motion_prediction_enabled = config.MOTION_PREDICTION_ENABLED
+        prediction_horizon = config.PREDICTION_HORIZON_SECONDS
+
+        # Get current time once
+        current_time = time.time()
+
         tracked = []
         failed = []
-        
+
         for obj in self.objects:
             # Skip if tracker not initialized
             if obj.tracker is None:
                 if not obj.is_lost:
                     obj.is_lost = True
-                    obj.lost_time = time.time()
+                    obj.lost_time = current_time
                 continue
-                
+
             try:
                 ok, bbox = obj.tracker.update(frame)
                 if ok:
                     obj.update_velocity(bbox)
                     obj.is_lost = False
                     obj.lost_time = None
-                    
+
                     # Predict future position if enabled
-                    if config.MOTION_PREDICTION_ENABLED:
-                        obj.predict_position(config.PREDICTION_HORIZON_SECONDS)
-                    
+                    if motion_prediction_enabled:
+                        obj.predict_position(prediction_horizon)
+
                     # === THREAT SCORE CALCULATION ===
                     # 1. Base Score: Proximity (Size)
                     area = bbox[2] * bbox[3]
-                    frame_area = frame.shape[0] * frame.shape[1]
-                    size_score = min(1.0, area / (frame_area * 0.5)) # Cap at 50% screen coverage
-                    
+                    size_score = min(1.0, area / frame_area_half)
+
                     # 2. Semantic Score: Type Importance
-                    # Normalize label to lowercase for lookup
-                    label_key = obj.label.lower().split(" ")[-1] # Handle "Red Cup" -> "cup"
-                    semantic_score = config.THREAT_PRIORITIES.get(label_key, config.THREAT_PRIORITIES["default"])
-                    
+                    # Extract last word from label (handles "Red Cup" -> "cup")
+                    label_parts = obj.label.split()
+                    label_key = label_parts[-1].lower()
+                    semantic_score = threat_priorities.get(label_key, threat_priorities["default"])
+
                     # 3. Centrality Score: Is it in front of us?
                     center_x = bbox[0] + bbox[2] / 2
-                    frame_center_x = frame.shape[1] / 2
-                    dist_from_center = abs(center_x - frame_center_x) / (frame.shape[1] / 2)
+                    dist_from_center = abs(center_x - frame_center_x) / frame_half_w
                     centrality_score = 1.0 - min(1.0, dist_from_center)
-                    
-                    obj.threat_score = (size_score * 0.7) + (centrality_score * 0.3)
-                    
+
+                    # Combined threat score with semantic priority
+                    obj.threat_score = ((size_score * 0.6) + (centrality_score * 0.4)) * semantic_score
+
                     tracked.append(obj)
                 else:
                     # Tracker failed
                     if not obj.is_lost:
-                        print(f"⚠️ Tracker lost for object #{obj.id} ({obj.label})")
+                        print(f"[WARNING] Tracker lost for object #{obj.id} ({obj.label})")
                         obj.is_lost = True
-                        obj.lost_time = time.time()
+                        obj.lost_time = current_time
                     failed.append(obj)
             except Exception as e:
-                print(f"⚠️ Tracker error for object #{obj.id}: {e}")
+                print(f"[ERROR] Tracker error for object #{obj.id}: {e}")
                 failed.append(obj)
-        
+
         # We return tracked objects, but we keep lost ones in self.objects for a while
         return tracked
     
@@ -243,7 +258,7 @@ class ObjectManager:
                     obj.tracker = cv2.legacy.TrackerCSRT_create()
                 # Fallback to KCF (faster but less accurate)
                 elif hasattr(cv2, 'TrackerKCF_create'):
-                    print("⚠️ CSRT not found, falling back to KCF")
+                    print("[WARNING] CSRT not found, falling back to KCF")
                     obj.tracker = cv2.TrackerKCF_create()
                 else:
                     # Trackers not available - detection-only mode (requires opencv-contrib-python for tracking)
@@ -251,9 +266,9 @@ class ObjectManager:
                     return
                 
                 obj.tracker.init(frame, obj.bbox)
-                print(f"🎯 Initialized tracker for object #{obj_id} ({obj.label})")
+                print(f"[OBJECT] Initialized tracker for object #{obj_id} ({obj.label})")
             except Exception as e:
-                print(f"❌ Failed to init tracker: {e}")
+                print(f"[ERROR] Failed to init tracker: {e}")
     
     def init_all_trackers(self, frame):
         """Initialize trackers for all objects."""
@@ -335,7 +350,7 @@ class ObjectManager:
             removed = self.objects[max_count:]
             self.objects = self.objects[:max_count]
             
-            print(f"⚠️ Limited to {max_count} objects, removed {len(removed)}")
+            print(f"[WARNING] Limited to {max_count} objects, removed {len(removed)}")
     
     def get_proximity_zone(self, obj, frame_width, frame_height):
         """
@@ -417,6 +432,6 @@ class ObjectManager:
         
         removed = active_count - len(self.objects)
         if removed > 0:
-            print(f"🧹 Removed {removed} stale trackers (>{max_age}s without verification)")
+            print(f"[OBJECT] Removed {removed} stale trackers (>{max_age}s without verification)")
             return True # Return True if cleanup happened
         return False

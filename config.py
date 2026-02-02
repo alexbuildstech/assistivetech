@@ -1,6 +1,6 @@
 """Configuration constants for the Assistive Navigation Prototype.
 Centralized settings for vision, audio, and API parameters.
-Includes patent-worthy features: multi-object tracking, voice control, and intelligent modes.
+Includes advanced features: multi-object tracking, voice control, and intelligent modes.
 """
 
 import os
@@ -282,16 +282,21 @@ MIN_VELOCITY_THRESHOLD = 5  # pixels/frame to consider as "moving"
 # PROXIMITY ALERT CONFIGURATION
 # ============================================================================
 PROXIMITY_ZONES = {
-    "safe": {"min": 0.0, "max": 0.3, "color": (0, 255, 0)},      # >30% of frame
-    "caution": {"min": 0.3, "max": 0.6, "color": (0, 255, 255)}, # 30-60%
-    "warning": {"min": 0.6, "max": 1.0, "color": (0, 0, 255)},   # <60%
+    "safe": {"min": 0.0, "max": 0.05, "color": (0, 255, 0)},      # <5% of frame (far away)
+    "caution": {"min": 0.05, "max": 0.15, "color": (0, 255, 255)}, # 5-15% (approaching)
+    "warning": {"min": 0.15, "max": 1.0, "color": (0, 0, 255)},   # >15% (close!)
 }
 
 # ============================================================================
-# PERFORMANCE OPTIMIZATION
+# PERFORMANCE OPTIMIZATION - REALTIME SETTINGS
 # ============================================================================
-FRAME_SKIP_DETECTION = 10  # Optimized for i3 10th gen (more frequent checks)
-TRACKER_CONFIDENCE_THRESHOLD = 0.5  # Re-acquire if tracker confidence drops below this
+FRAME_SKIP_DETECTION = 5  # More frequent detection for better responsiveness
+TRACKER_CONFIDENCE_THRESHOLD = 0.3  # Lower threshold for faster re-acquisition
+
+# Real-time optimization flags
+ENABLE_FRAME_SKIP = True  # Skip every Nth frame for processing
+FRAME_PROCESSING_EVERY_N = 2  # Process every 2nd frame (30fps -> 15fps vision, 30fps UI)
+MAX_PROCESSING_FPS = 15  # Cap vision processing at 15 FPS for consistent performance
 
 # ============================================================================
 # SELF-LEARNING SYSTEM CONFIGURATION
@@ -336,22 +341,23 @@ ROCK_5C_CAMERA_HEIGHT = 480  # Default: 480 (vs 720)
 # Frame processing
 ROCK_5C_SKIP_FRAMES = 2  # Process every Nth frame (2 = 30fps → 15fps processing)
 
-# Audio buffer (smaller = lower latency, but may cause glitches) - OPTIMIZED
-ROCK_5C_AUDIO_BUFFER = 2048  # Reduced from 4096 for lower latency
+# Audio buffer (smaller = lower latency, but may cause glitches) - REALTIME OPTIMIZED
+ROCK_5C_AUDIO_BUFFER = 512  # Ultra-low latency for real-time response
 
 # Detection rate limiting
-ROCK_5C_MIN_DETECTION_INTERVAL = 1.0  # Aggressive for faster response
+ROCK_5C_MIN_DETECTION_INTERVAL = 0.5  # Very aggressive for real-time
 
 # Enable optimizations automatically if running on ARM
 import platform
 IS_ARM = platform.machine().startswith('aarch') or platform.machine().startswith('arm')
 
 if IS_ARM:
-    print("🚀 ARM processor detected - enabling Rock 5C optimizations")
+    print("[CONFIG] ARM processor detected - enabling Rock 5C optimizations")
     # Override settings for performance
     AUDIO_BUFFER_SIZE = ROCK_5C_AUDIO_BUFFER
     REACQUIRE_COOLDOWN_SECONDS = ROCK_5C_MIN_DETECTION_INTERVAL
 else:
-    # For x86/desktop (i3 10th gen), optimize for lowest latency
-    AUDIO_BUFFER_SIZE = 2048  # Balanced - reduced from aggressive 1024 to prevent underflows
-    print(f"💻 x86 detected - using optimized settings (buffer={AUDIO_BUFFER_SIZE})")
+    # For x86/desktop, use ultra-low latency settings for real-time
+    AUDIO_BUFFER_SIZE = 512  # Ultra-low latency (was 2048)
+    REACQUIRE_COOLDOWN_SECONDS = 0.5  # Faster re-acquisition
+    print(f"[CONFIG] Real-time mode enabled (buffer={AUDIO_BUFFER_SIZE}, cooldown={REACQUIRE_COOLDOWN_SECONDS}s)")
