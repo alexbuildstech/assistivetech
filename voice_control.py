@@ -435,8 +435,15 @@ class VoiceController:
         # FAST PATH: Check for explicit visual keywords to save latency
         # (Still useful for obvious cases)
         lower_text = text.lower()
+        
+        # Prioritize specific intents before generic visual_qa
+        # 0. Describe Scene (explicit command)
+        if "describe" in lower_text and ("scene" in lower_text or "surroundings" in lower_text or "around" in lower_text):
+            print("[VOICE] Command Detected: Describe Scene")
+            return {"intent": "describe_scene"}
+
         visual_keywords = [
-            "see", "look", "what is this", "describe", "read", "identify",
+            "see", "look", "what is this", "read", "identify",
             "what's this", "whats this", "tell me what", "what do you think",
             "try again", "again", "better view", "different", "use your visual",
             "use the visual", "check", "analyze", "examine"
@@ -475,6 +482,14 @@ class VoiceController:
         # 4. Help
         if "help" in lower_text or "what can you do" in lower_text:
             return {"intent": "help"}
+
+        # 5. Recall Object ("Where is/are my X?", "Have you seen my X?")
+        recall_match = re.search(r"(where('?s| is| are)( my| the)?|have you seen( my)?|last saw)\s+(.+?)(\?|$)", lower_text)
+        if recall_match:
+            obj_name = recall_match.group(5).strip()
+            obj_name = re.sub(r'[^\w\s]', '', obj_name)  # Sanitize
+            print(f"[VOICE] Command Detected: Recall '{obj_name}'")
+            return {"intent": "recall_object", "params": {"object": obj_name}}
 
         # SLOW PATH: Ask Gemini (Chat Model)
         # It will reply with "VISUAL_QUERY" if it needs vision, or the actual chat response.
