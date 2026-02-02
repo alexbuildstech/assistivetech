@@ -5,12 +5,25 @@ Includes advanced features: multi-object tracking, voice control, and intelligen
 
 import os
 
+# Internal helper to load .env without external dependencies
+def _load_env_simple():
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, val = line.split("=", 1)
+                    os.environ[key.strip()] = val.strip().strip('"').strip("'")
+
+_load_env_simple()
+
 # ============================================================================
 # GEMINI API CONFIGURATION
 # ============================================================================
 API_KEY = os.getenv("GOOGLE_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
-MODEL_ID = "models/gemini-flash-lite-latest"  # Reverted to 2.0 Flash as requested
-GENERAL_CHAT_MODEL = "models/gemini-flash-lite-latest"  # For general conversation
+MODEL_ID = "models/gemini-2.0-flash-exp"  # Updated to latest flash-exp
+GENERAL_CHAT_MODEL = "models/gemini-2.0-flash-exp" 
 
 # ============================================================================
 # GROQ API CONFIGURATION (for advanced Whisper STT & Routing)

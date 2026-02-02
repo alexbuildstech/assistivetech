@@ -131,13 +131,21 @@ class VisionController:
             else:
                 time.sleep(0.01) # Avoid busy loop on failure
                 
-    def read_frame(self):
-        """Returns the latest captured frame instantly."""
-        with self.frame_lock:
-            if self.latest_frame is not None:
-                return True, self.latest_frame.copy()
-            else:
-                return False, None
+    def read_frame(self, wait_timeout=2.0):
+        """
+        Returns the latest captured frame instantly.
+        If no frame is available yet (startup race condition), waits up to wait_timeout seconds.
+        """
+        start_time = time.time()
+        while time.time() - start_time < wait_timeout:
+            with self.frame_lock:
+                if self.latest_frame is not None:
+                    return True, self.latest_frame.copy()
+            
+            # If we're here, no frame yet. Give the capture thread a moment.
+            time.sleep(0.01)
+            
+        return False, None
     
     def stop_capture(self):
         """Stops the active capture thread."""

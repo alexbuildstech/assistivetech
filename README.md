@@ -21,9 +21,12 @@ pip install google-generativeai opencv-python opencv-contrib-python \
             --break-system-packages
 ```
 
-### 2. Configure API Access
-- **Vision VLM**: [Google Gemini API](https://aistudio.google.com)
-- **STT Interface**: [Groq API](https://console.groq.com)
+### 2. Configure API Keys
+Copy the template and add your API keys:
+```bash
+cp .env.example .env
+nano .env  # Add your GOOGLE_API_KEY and GROQ_API_KEY
+```
 
 ### 3. Execution
 ```bash

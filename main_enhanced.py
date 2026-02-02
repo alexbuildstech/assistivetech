@@ -1,4 +1,4 @@
- """
+"""
 Assistive Navigation System
 Enhanced main application with voice control, multi-object tracking,
 intelligent mode switching, and scene understanding.
@@ -449,6 +449,10 @@ def main():
                 fps_start_time = time.time()
                 current_fps = 0.0
                 
+                # Error tracking
+                consecutive_frame_failures = 0
+                max_frame_failures = 10
+                
                 while True:
                     if not shared_state.is_running:
                         break
@@ -458,8 +462,15 @@ def main():
                     # 1. Read current frame
                     ret, frame = vision_controller.read_frame()
                     if not ret or frame is None:
-                        print("[ERROR] Failed to read frame")
-                        break
+                        consecutive_frame_failures += 1
+                        if consecutive_frame_failures >= max_frame_failures:
+                            print(f"[ERROR] Failed to read frame {max_frame_failures} times. Exiting.")
+                            break
+                        time.sleep(0.01)
+                        continue
+                    
+                    # Success - reset counter
+                    consecutive_frame_failures = 0
                     
                     # === OPTIMIZED ROTATION LOGIC ===
                     h, w = frame.shape[:2]
@@ -520,15 +531,16 @@ def main():
                     if key == ord('q') or key == ord('Q'):
                         break
                     
-                    # Check Hardware Inputs
+                    # Check Hardware Inputs (Standalone - doesn't block key handling)
                     if hardware_interface:
                         pressure = hardware_interface.get_pressure()
                         if pressure > config.PRESSURE_THRESHOLD:
                              print(f"************ SQUEEZE DETECTED ({pressure}) ************")
                              # Potential action: Trigger Stop or Record?
                              # For now just log it to prove it works.
-                        
-                    elif key == ord('f') or key == ord('F'):
+                    
+                    # Key handlers (separate from hardware check)
+                    if key == ord('f') or key == ord('F'):
                         print("⚡ Triggering detection...")
                         shared_state.add_command("detect")
                     elif key == ord('c') or key == ord('C'):
