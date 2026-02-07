@@ -154,6 +154,8 @@ class AudioCoordinator:
         # Map to signature names defined in config.AUDIO_SIGNATURES
         if "person" in label_lower or "human" in label_lower:
             return "person"
+        elif "hand" in label_lower:  # ADDED: Support for hand tracking
+            return "person"  # Use person signature (heartbeat) for hands
         elif "phone" in label_lower or "mobile" in label_lower:
             return "phone"
         elif "door" in label_lower:

@@ -6,6 +6,7 @@ Manages different operating modes with context-aware behavior.
 import cv2
 import numpy as np
 import time
+import re
 import config
 from object_manager import ObjectManager
 
@@ -130,7 +131,7 @@ class ModeController:
         
         count = 0
         frame_height, frame_width = frame.shape[:2]
-        import time
+        current_time = time.time()
         
         for det in detections:
             try:
@@ -160,7 +161,6 @@ class ModeController:
                 new_bbox = (x, y, w, h)
                 
                 # Parse label for context (e.g. "Phone [on table]")
-                import re
                 context = None
                 match = re.search(r"^(.*?)\[(.*?)\]", label)
                 if match:
@@ -170,8 +170,17 @@ class ModeController:
                 # Try to match with existing object
                 matched = False
                 for existing_obj in self.object_manager.objects:
-                    # Check label match (fuzzy or exact)
-                    if existing_obj.label == label: 
+                    # Check label match (FUZZY matching for better hand/object tracking)
+                    # Match if labels are the same, or one contains the other
+                    existing_label_lower = existing_obj.label.lower()
+                    new_label_lower = label.lower()
+                    labels_match = (
+                        existing_label_lower == new_label_lower or
+                        existing_label_lower in new_label_lower or
+                        new_label_lower in existing_label_lower
+                    )
+                    
+                    if labels_match:
                         iou = self.object_manager.compute_iou(existing_obj.bbox, new_bbox)
                         
                         # SMART MERGING:
@@ -199,7 +208,7 @@ class ModeController:
                         
                         # ALWAYS update metadata
                         if iou > 0.1: # If it's likely the same object
-                            existing_obj.last_verified = time.time()
+                            existing_obj.last_verified = current_time
                             existing_obj.context = context # Update context
                             existing_obj.is_lost = False
                             existing_obj.lost_time = None

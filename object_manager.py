@@ -145,8 +145,12 @@ class ObjectManager:
         return None
     
     def get_objects_by_label(self, label):
-        """Get all objects matching a label."""
-        return [obj for obj in self.objects if obj.label.lower() == label.lower()]
+        """Get all objects matching a label (FUZZY matching)."""
+        label_lower = label.lower()
+        return [obj for obj in self.objects 
+                if (obj.label.lower() == label_lower or
+                    label_lower in obj.label.lower() or
+                    obj.label.lower() in label_lower)]
     
     def clear(self):
         """Clear all tracked objects."""

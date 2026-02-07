@@ -97,12 +97,14 @@ class SharedGameState:
         with self._lock:
             return self._tracked_objects, self._tracking_status
             
+
     def get_display_state(self):
         """Get display state - creates minimal copy for UI thread."""
         with self._lock:
             # Update cache in place
             self._display_state_cache["frame"] = self._frame_buffer
-            self._display_state_cache["objects"] = self._tracked_objects
+            # CRITICAL: Deep copy objects to prevent race conditions in UI thread
+            self._display_state_cache["objects"] = copy.deepcopy(self._tracked_objects)
             self._display_state_cache["status"] = self._tracking_status
             self._display_state_cache["fps"] = self._fps
             return self._display_state_cache.copy()
