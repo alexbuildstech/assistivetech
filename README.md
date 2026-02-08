@@ -8,6 +8,16 @@ The central hypothesis is that a **locally-persistent object history** can reduc
 
 ---
 
+## 🤝 Partners & Acknowledgments
+
+This research is made possible through the support of industry partners providing the core infrastructure for Nova:
+
+- **[Radxa](https://radxa.com)**: Provided the **ROCK 5C** high-performance SBC, serving as the primary compute node for local vision processing and serial orchestration.
+- **[DFRobot](https://www.dfrobot.com)**: Provided the electronic ecosystem, including high-torque servos for articulation and **Mega2560** controllers for hardware-level interface.
+- **[Polymaker](https://polymaker.com)**: Provided advanced **PLA+** filaments, ensuring the structural integrity and durability of the 3D-printed humanoid frame.
+
+---
+
 ## Quick Start
 
 ### 1. Install Dependencies
