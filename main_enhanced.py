@@ -244,7 +244,7 @@ def main():
             # === Initialize Learning Module ===
             learning_module = None
             if config.ENABLE_LEARNING:
-                print("\n[5/5] Initializing Self-Learning System...")
+                print("\n[5/6] Initializing Self-Learning System...")
                 from learning_module import LearningModule
                 learning_module = LearningModule()
                 stats = learning_module.get_stats()
@@ -252,7 +252,7 @@ def main():
                 print(f"   [LEARNING] Cache: {stats['cached_images']} images ({stats['cache_size_mb']:.1f} MB)")
             
             # === Initialize Hardware Interface ===
-            print("\n[5/6] Initializing Hardware Interface (Arduino)...")
+            print("\n[6/6] Initializing Hardware Interface (Arduino)...")
             hardware_interface = None
             try:
                 from hardware_interface import HardwareInterface, DummyHardwareInterface
