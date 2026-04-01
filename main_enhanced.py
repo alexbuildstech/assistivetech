@@ -269,7 +269,7 @@ def main():
                 hardware_interface = DummyHardwareInterface()
 
             # === Initialize Shared State ===
-            print("\n[6/6] Initializing Shared State & Audio...")
+            print("\n[final] Initializing Shared State & Audio...")
             import threading
             from shared_state import SharedGameState
             shared_state = SharedGameState()
