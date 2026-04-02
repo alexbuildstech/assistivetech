@@ -203,11 +203,11 @@ def main():
         # Enter non-blocking mode
         with console:
             # === Initialization ===
-            print("[1/5] Initializing Vision Controller...")
+            print("[1/7] Initializing Vision Controller...")
             vision_controller = VisionController()
             
-            # [2/5] Initializing Audio Controller
-            print("\n[2/5] Initializing Audio Controller...")
+            # [2/7] Initializing Audio Controller
+            print("\n[2/7] Initializing Audio Controller...")
             audio_controller = None
             if config.ENABLE_HRTF:
                 try:
@@ -225,7 +225,7 @@ def main():
                 from audio_module_multi import MultiAudioController
                 audio_controller = MultiAudioController()
             
-            print("[3/5] Initializing Voice Controller...")
+            print("[3/7] Initializing Voice Controller...")
             try:
                 voice_controller = VoiceController()
                 voice_enabled = True
@@ -234,7 +234,7 @@ def main():
                 print("   Continuing without voice features...")
                 voice_enabled = False
             
-            print("\n[4/5] Initializing Mode Controller...")
+            print("\n[4/7] Initializing Mode Controller...")
             mode_controller = ModeController()
             mode_controller.set_frame_dimensions(
                 vision_controller.frame_width,
@@ -244,7 +244,7 @@ def main():
             # === Initialize Learning Module ===
             learning_module = None
             if config.ENABLE_LEARNING:
-                print("\n[5/6] Initializing Self-Learning System...")
+                print("\n[5/7] Initializing Self-Learning System...")
                 from learning_module import LearningModule
                 learning_module = LearningModule()
                 stats = learning_module.get_stats()
@@ -252,7 +252,7 @@ def main():
                 print(f"   [LEARNING] Cache: {stats['cached_images']} images ({stats['cache_size_mb']:.1f} MB)")
             
             # === Initialize Hardware Interface ===
-            print("\n[6/6] Initializing Hardware Interface (Arduino)...")
+            print("\n[6/7] Initializing Hardware Interface (Arduino)...")
             hardware_interface = None
             try:
                 from hardware_interface import HardwareInterface, DummyHardwareInterface
@@ -269,7 +269,7 @@ def main():
                 hardware_interface = DummyHardwareInterface()
 
             # === Initialize Shared State ===
-            print("\n[final] Initializing Shared State & Audio...")
+            print("\n[7/7] Initializing Shared State & Audio...")
             import threading
             from shared_state import SharedGameState
             shared_state = SharedGameState()
