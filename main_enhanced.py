@@ -58,7 +58,7 @@ def draw_enhanced_overlay(frame, mode_controller, tracking_status):
                 config.FONT, 0.6, config.COLOR_TEXT, 1)
     
     # Controls hint
-    cv2.putText(status_bar, "V:Voice | D:Describe | M:Mode | Q:Quit", (width - 500, 30),
+    cv2.putText(status_bar, "C:Record | S:Stop | D:Describe | M:Mode | Q:Quit", (width - 620, 30),
                 config.FONT, 0.5, (200, 200, 200), 1)
     
     # Apply status bar
