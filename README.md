@@ -40,10 +40,7 @@ nano .env  # Add your GOOGLE_API_KEY and GROQ_API_KEY
 
 ### 3. Execution
 ```bash
-# Update config.py with your keys
-nano config.py
-
-# Launch experimental core
+# The app loads GOOGLE_API_KEY and GROQ_API_KEY from .env automatically
 python3 main_enhanced.py
 ```
 

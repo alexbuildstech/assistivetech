@@ -129,15 +129,12 @@ class MultiAudioController:
             # Create indices efficiently
             end_pos = position + frames
             if end_pos <= n_sig_samples:
-                # No wrap needed
-                samples = signature[position:end_pos]
+                self._index_buffer[:frames] = np.arange(position, end_pos, dtype=np.int32)
             else:
-                # Handle wrap-around
                 part1_len = n_sig_samples - position
-                samples = np.concatenate([
-                    signature[position:],
-                    signature[:frames - part1_len]
-                ])
+                self._index_buffer[:part1_len] = np.arange(position, n_sig_samples, dtype=np.int32)
+                self._index_buffer[part1_len:frames] = np.arange(0, frames - part1_len, dtype=np.int32)
+            samples = signature[self._index_buffer[:frames]]
             
             # Update position (defer lock until after processing)
             new_position = int((position + frames) % n_sig_samples)

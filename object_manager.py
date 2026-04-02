@@ -101,8 +101,9 @@ class ObjectManager:
         Returns:
             TrackedObject instance
         """
-        # Get audio signature for this object type
-        audio_sig = config.AUDIO_SIGNATURES.get(label, config.AUDIO_SIGNATURES["default"])
+        label_tokens = {token.lower() for token in label.split()}
+        signature_key = next((token for token in label_tokens if token in config.AUDIO_SIGNATURES), "default")
+        audio_sig = config.AUDIO_SIGNATURES[signature_key]
         
         # Assign color
         color = self.color_palette[self.next_id % len(self.color_palette)]
@@ -145,12 +146,10 @@ class ObjectManager:
         return None
     
     def get_objects_by_label(self, label):
-        """Get all objects matching a label (FUZZY matching)."""
-        label_lower = label.lower()
-        return [obj for obj in self.objects 
-                if (obj.label.lower() == label_lower or
-                    label_lower in obj.label.lower() or
-                    obj.label.lower() in label_lower)]
+        """Get all objects matching a label."""
+        label_tokens = set(label.lower().split())
+        return [obj for obj in self.objects
+                if label_tokens & set(obj.label.lower().split())]
     
     def clear(self):
         """Clear all tracked objects."""
@@ -334,12 +333,12 @@ class ObjectManager:
     def filter_by_labels(self, labels):
         """
         Keep only objects matching the given labels.
-        
+
         Args:
             labels: List of label strings
         """
-        labels_lower = [l.lower() for l in labels]
-        self.objects = [obj for obj in self.objects if obj.label.lower() in labels_lower]
+        label_tokens = {token.lower() for label in labels for token in label.split()}
+        self.objects = [obj for obj in self.objects if label_tokens & set(obj.label.lower().split())]
     
     def limit_objects(self, max_count):
         """

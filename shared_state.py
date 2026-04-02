@@ -86,16 +86,15 @@ class SharedGameState:
             return self._frame_buffer
             
     def update_tracking(self, objects, status):
-        """Update tracking with reference swap (no deep copy)."""
+        """Update tracking with a shallow snapshot."""
         with self._lock:
-            # Just swap the reference - objects are immutable enough for this
-            self._tracked_objects = objects
+            self._tracked_objects = list(objects)
             self._tracking_status = status
-            
+
     def get_tracking_state(self):
         """Get current tracking state efficiently."""
         with self._lock:
-            return self._tracked_objects, self._tracking_status
+            return list(self._tracked_objects), self._tracking_status
             
 
     def get_display_state(self):
