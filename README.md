@@ -40,17 +40,33 @@ nano .env  # Add your GOOGLE_API_KEY and GROQ_API_KEY
 
 ### 3. Execution
 ```bash
-# Update config.py with your keys
-nano config.py
-
-# Launch experimental core
+# The app loads GOOGLE_API_KEY and GROQ_API_KEY from .env automatically
 python3 main_enhanced.py
 ```
 
-### 4. Hardware Interaction
+For terminal-only or headless runs:
+```bash
+NOVA_HEADLESS=1 python3 main_enhanced.py
+```
+
+### 4. Default Runtime Behavior
+- Core camera → detection/tracking → audio guidance stays enabled.
+- Voice command support stays enabled when Groq is configured correctly.
+- The following remain available but are now **optional / off by default** for stability:
+  - Hardware serial integration
+  - Persistent learning / recall
+  - HRTF / room reverb path
+  - Free-form chat persona
+- If Groq or Gemini credentials are invalid, the app now degrades more cleanly instead of crashing.
+
+### 5. Hardware Interaction
 - **F**: Trigger VLM-based object detection (single frame)
-- **C**: Initiate voice command recording (Wait for beep)
+- **C**: Initiate voice command recording
+- **S**: Stop voice recording and process command
 - **M**: Cycle through experimental operating modes
+- **Q**: Quit
+
+In terminal-only headless mode, use **Ctrl+C** to exit.
 
 ---
 
@@ -70,6 +86,8 @@ This framework implements:
 - **NLP Brittleness**: Command parsing relies on keyword-matching and simple LLM prompting; it does not yet handle complex, multi-step spatial reasoning.
 - **Latency Bottlenecks**: Round-trip time for cloud VLMs introduces a non-trivial delay (typically 1.5–3s) between environment change and system update.
 - **Coordinate Drift**: Lacks SLAM/Odometry integration. Object "memory" is relative to the frame of detection, which degrades as the user moves.
+- **Cloud Dependency**: The core vision and voice experience still depends on valid Gemini and Groq API credentials. Invalid keys now fail more safely, but they still disable major functionality.
+- **Headless Usage**: GUI rendering is optional now, but fully interactive visual control still works best when a display is available.
 
 ---
 

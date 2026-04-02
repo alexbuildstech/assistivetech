@@ -154,7 +154,7 @@ REACQUIRE_COOLDOWN_SECONDS = 0.3  # Aggressive for lower latency
 # ============================================================================
 # HARDWARE / PREIPHERALS CONFIGURATION
 # ============================================================================
-ENABLE_HARDWARE = True
+ENABLE_HARDWARE = False
 SERIAL_PORT = "/dev/ttyACM0"  # Default for Arduino on Linux
 SERIAL_BAUD = 115200
 PRESSURE_THRESHOLD = 500  # Threshold to trigger "Haptic/Squeeze" event
@@ -276,13 +276,13 @@ VOICE_COMMANDS = {
     "track": "navigation",
     "find": "navigation",
     "follow": "navigation",
-    
+
     # Mode switching
     "navigation": "mode_navigation",
     "obstacle": "mode_obstacle",
     "social": "mode_social",
     "explore": "mode_exploration",
-    
+
     # Actions
     "describe": "describe_scene",
     "scene": "describe_scene",
@@ -291,6 +291,9 @@ VOICE_COMMANDS = {
     "stop": "stop_tracking",
     "quit": "quit",
 }
+
+ENABLE_CHAT_PERSONA = False
+ENABLE_VOICE = True
 
 # ============================================================================
 # PREDICTIVE TRACKING CONFIGURATION
@@ -322,7 +325,7 @@ MAX_PROCESSING_FPS = 15  # Cap vision processing at 15 FPS for consistent perfor
 # ============================================================================
 # SELF-LEARNING SYSTEM CONFIGURATION
 # ============================================================================
-ENABLE_LEARNING = True
+ENABLE_LEARNING = False
 LEARNING_DB_PATH = "assistive_learning.db"
 IMAGE_CACHE_DIR = "object_cache/"
 IMAGE_COMPRESSION_QUALITY = 50  # JPEG quality (0-100)
@@ -347,8 +350,8 @@ MANUAL_FIND_KEY = 'f'  # Key to trigger manual detection
 # ============================================================================
 # HRTF SPATIAL AUDIO
 # ============================================================================
-ENABLE_HRTF = True  # Use advanced HRTF audio instead of basic stereo
-ENABLE_ROOM_REVERB = True  # Simple room acoustics simulation
+ENABLE_HRTF = False  # Use advanced HRTF audio instead of basic stereo
+ENABLE_ROOM_REVERB = False  # Simple room acoustics simulation
 
 # ============================================================================
 # ROCK 5C / ARM SBC OPTIMIZATION

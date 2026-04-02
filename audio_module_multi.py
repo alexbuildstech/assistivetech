@@ -129,15 +129,12 @@ class MultiAudioController:
             # Create indices efficiently
             end_pos = position + frames
             if end_pos <= n_sig_samples:
-                # No wrap needed
-                samples = signature[position:end_pos]
+                self._index_buffer[:frames] = np.arange(position, end_pos, dtype=np.int32)
             else:
-                # Handle wrap-around
                 part1_len = n_sig_samples - position
-                samples = np.concatenate([
-                    signature[position:],
-                    signature[:frames - part1_len]
-                ])
+                self._index_buffer[:part1_len] = np.arange(position, n_sig_samples, dtype=np.int32)
+                self._index_buffer[part1_len:frames] = np.arange(0, frames - part1_len, dtype=np.int32)
+            samples = signature[self._index_buffer[:frames]]
             
             # Update position (defer lock until after processing)
             new_position = int((position + frames) % n_sig_samples)
@@ -169,14 +166,14 @@ class MultiAudioController:
     def start_stream(self, shared_state=None):
         """Start the audio stream."""
         if self.running:
-            return
-        
+            return True
+
         self.shared_state = shared_state
-        
+
         try:
             # Use smaller buffer for lower latency
             buffer_size = min(512, self.buffer_size)  # Ultra-low latency
-            
+
             self.stream = sd.OutputStream(
                 samplerate=self.sample_rate,
                 channels=2,
@@ -187,9 +184,13 @@ class MultiAudioController:
             self.stream.start()
             self.running = True
             print(f"[AUDIO] Multi-audio stream started (buffer={buffer_size}, latency=low)")
-        
+            return True
+
         except Exception as e:
+            self.stream = None
+            self.running = False
             print(f"[ERROR] Failed to start audio stream: {e}")
+            return False
     
     def pause_stream(self):
         """Pause the audio stream."""
@@ -198,8 +199,8 @@ class MultiAudioController:
 
     def resume_stream(self):
         """Resume the audio stream."""
-        self.start_stream(self.shared_state)
-        print("[AUDIO] Multi-audio stream resumed.")
+        if self.start_stream(self.shared_state):
+            print("[AUDIO] Multi-audio stream resumed.")
 
     def stop_stream(self):
         """Stop the audio stream."""

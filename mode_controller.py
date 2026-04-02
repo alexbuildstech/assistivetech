@@ -169,17 +169,16 @@ class ModeController:
                 
                 # Try to match with existing object
                 matched = False
+                new_label_lower = label.lower()
+                new_label_tokens = set(re.findall(r"\w+", new_label_lower))
                 for existing_obj in self.object_manager.objects:
-                    # Check label match (FUZZY matching for better hand/object tracking)
-                    # Match if labels are the same, or one contains the other
                     existing_label_lower = existing_obj.label.lower()
-                    new_label_lower = label.lower()
+                    existing_label_tokens = set(re.findall(r"\w+", existing_label_lower))
                     labels_match = (
                         existing_label_lower == new_label_lower or
-                        existing_label_lower in new_label_lower or
-                        new_label_lower in existing_label_lower
+                        bool(existing_label_tokens & new_label_tokens)
                     )
-                    
+
                     if labels_match:
                         iou = self.object_manager.compute_iou(existing_obj.bbox, new_bbox)
                         

@@ -15,6 +15,7 @@ import threading
 import cv2
 import numpy as np
 import hashlib
+import re
 from datetime import datetime
 from typing import Optional, Tuple, List, Dict
 import config
@@ -123,51 +124,60 @@ class LearningModule:
         
         return hashlib.md5(hash_bytes).hexdigest()
     
-    def compress_and_save_image(self, frame, bbox) -> Optional[str]:
+    def _extract_object_image(self, frame, bbox):
+        """Extract and normalize an object crop from a frame."""
+        x, y, w, h = map(int, bbox)
+        obj_image = frame[y:y+h, x:x+w]
+        if obj_image.size == 0:
+            return None
+        return cv2.resize(obj_image, (320, 240), interpolation=cv2.INTER_AREA)
+
+    def _canonicalize_label(self, label: str) -> str:
+        """Convert descriptive labels to a stable lookup form."""
+        tokens = re.findall(r"\w+", label.lower())
+        if not tokens:
+            return label.lower().strip()
+        stopwords = {"the", "a", "an", "on", "in", "at", "with", "of", "and"}
+        filtered = [token for token in tokens if token not in stopwords]
+        if not filtered:
+            filtered = tokens
+        return " ".join(filtered)
+
+    def compress_and_save_image(self, frame, bbox) -> Tuple[Optional[str], Optional[str]]:
         """
         Compress and save object image to cache.
-        
+
         Args:
             frame: Full video frame
             bbox: Bounding box (x, y, w, h)
-        
+
         Returns:
-            Path to saved image, or None if failed
+            (path to saved image, image hash), or (None, None) if failed
         """
         try:
-            x, y, w, h = map(int, bbox)
-            
-            # Crop object
-            obj_image = frame[y:y+h, x:x+w]
-            
-            if obj_image.size == 0:
-                return None
-            
-            # Resize to fixed size
-            resized = cv2.resize(obj_image, (320, 240), interpolation=cv2.INTER_AREA)
-            
-            # Compute hash
+            resized = self._extract_object_image(frame, bbox)
+            if resized is None:
+                return None, None
+
             img_hash = self._compute_image_hash(resized)
-            
-            # Check if already exists
+
             cursor = self.conn.cursor()
             cursor.execute("SELECT image_path FROM objects WHERE image_hash = ?", (img_hash,))
             existing = cursor.fetchone()
-            
+
             if existing:
-                return existing[0]  # Already cached
-            
-            # Save as JPEG with compression
+                return existing[0], img_hash
+
             filename = f"{img_hash}.jpg"
             filepath = os.path.join(self.image_cache_dir, filename)
-            
+
             cv2.imwrite(filepath, resized, [cv2.IMWRITE_JPEG_QUALITY, config.IMAGE_COMPRESSION_QUALITY])
-            
-            return filepath
-        
+
+            return filepath, img_hash
+
         except Exception as e:
             print(f"[ERROR] Failed to save image: {e}")
-            return None
+            return None, None
     
     def bbox_to_grid(self, bbox, frame_width, frame_height) -> Tuple[int, int]:
         """Convert bounding box to grid coordinates."""
@@ -201,9 +211,7 @@ class LearningModule:
             grid_x, grid_y = self.bbox_to_grid(bbox, frame_width, frame_height)
             
             # Save compressed image
-            image_path = self.compress_and_save_image(frame, bbox)
-            image_hash = self._compute_image_hash(frame[int(bbox[1]):int(bbox[1]+bbox[3]), 
-                                                          int(bbox[0]):int(bbox[0]+bbox[2])])
+            image_path, image_hash = self.compress_and_save_image(frame, bbox)
             
             # Insert into objects table
             cursor = self.conn.cursor()
@@ -255,10 +263,16 @@ class LearningModule:
         """
         cursor = self.conn.cursor()
         
+        canonical_label = self._canonicalize_label(label)
+
         # Get total frequency for this object
         cursor.execute("""
-            SELECT SUM(frequency) FROM room_grid WHERE object_label = ?
-        """, (label,))
+            SELECT SUM(frequency)
+            FROM room_grid
+            WHERE lower(object_label) = lower(?)
+               OR lower(object_label) LIKE lower(?)
+               OR lower(object_label) LIKE lower(?)
+        """, (label, f"%{canonical_label}%", f"%{label.lower()}%"))
         total = cursor.fetchone()[0]
         
         if not total or total == 0:
@@ -268,10 +282,12 @@ class LearningModule:
         cursor.execute("""
             SELECT grid_x, grid_y, frequency, last_seen
             FROM room_grid
-            WHERE object_label = ?
+            WHERE lower(object_label) = lower(?)
+               OR lower(object_label) LIKE lower(?)
+               OR lower(object_label) LIKE lower(?)
             ORDER BY frequency DESC, last_seen DESC
             LIMIT 1
-        """, (label,))
+        """, (label, f"%{canonical_label}%", f"%{label.lower()}%"))
         
         result = cursor.fetchone()
         if not result:
@@ -370,14 +386,17 @@ class LearningModule:
             Dict with location info or None if never seen
         """
         cursor = self.conn.cursor()
-        
+        canonical_label = self._canonicalize_label(label)
+
         cursor.execute("""
             SELECT label, context, grid_x, grid_y, timestamp, confidence
             FROM objects
-            WHERE label = ?
+            WHERE lower(label) = lower(?)
+               OR lower(label) LIKE lower(?)
+               OR lower(label) LIKE lower(?)
             ORDER BY timestamp DESC
             LIMIT 1
-        """, (label,))
+        """, (label, f"%{canonical_label}%", f"%{label.lower()}%"))
         
         result = cursor.fetchone()
         if not result:

@@ -3,7 +3,11 @@ Hardware Interface Module for Assistive Navigation.
 Handles communication with Arduino Mega 2560 and external sensors (Pressure, etc.).
 """
 
-import serial
+try:
+    import serial
+except ImportError:
+    serial = None
+
 import threading
 import time
 import config
@@ -34,11 +38,17 @@ class HardwareInterface:
         if not config.ENABLE_HARDWARE:
             print("[HARDWARE] Hardware disabled in config.")
             return False
-            
+
+        if serial is None:
+            print("[HARDWARE] pyserial not installed. Hardware features unavailable.")
+            self.is_connected = False
+            self.connection = None
+            return False
+
         try:
             self.connection = serial.Serial(
-                self.serial_port, 
-                self.baud_rate, 
+                self.serial_port,
+                self.baud_rate,
                 timeout=1
             )
             self.is_connected = True
@@ -48,34 +58,61 @@ class HardwareInterface:
         except serial.SerialException as e:
             print(f"[HARDWARE] Connection failed: {e}")
             self.is_connected = False
+            self.connection = None
+            return False
+        except Exception as e:
+            print(f"[HARDWARE] Unexpected connection error: {e}")
+            self.is_connected = False
+            self.connection = None
             return False
 
     def start_reading(self):
         """Start the background reading thread."""
+        if self.thread and self.thread.is_alive():
+            return
         self.running = True
         self.thread = threading.Thread(target=self._read_worker, daemon=True)
         self.thread.start()
-        
+
     def stop(self):
         """Stop hardware interface."""
         self.running = False
+        self.is_connected = False
         if self.connection:
-            self.connection.close()
-            
+            try:
+                self.connection.close()
+            except Exception:
+                pass
+            self.connection = None
+        if self.thread and self.thread.is_alive() and self.thread is not threading.current_thread():
+            self.thread.join(timeout=1.0)
+
     def _read_worker(self):
         """Worker thread for reading serial data."""
-        while self.running and self.is_connected:
+        while self.running and self.is_connected and self.connection:
             try:
                 if self.connection.in_waiting > 0:
-                    line = self.connection.readline().decode('utf-8').strip()
+                    line = self.connection.readline().decode('utf-8', errors='ignore').strip()
                     self._parse_line(line)
                 else:
                     time.sleep(0.01)
             except Exception as e:
                 print(f"[HARDWARE] Read error: {e}")
                 self.is_connected = False
-                # Simple reconnect logic could go here
-                time.sleep(2)
+                self.running = False
+                if self.connection:
+                    try:
+                        self.connection.close()
+                    except Exception:
+                        pass
+                    self.connection = None
+                break
+
+    def __del__(self):
+        try:
+            self.stop()
+        except Exception:
+            pass
                 
     def _parse_line(self, line):
         """

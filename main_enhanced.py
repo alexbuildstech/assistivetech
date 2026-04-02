@@ -10,7 +10,6 @@ import time
 import config
 from vision_module import VisionController
 from audio_module_multi import MultiAudioController
-from voice_control import VoiceController
 from mode_controller import ModeController
 import json
 import re
@@ -58,7 +57,7 @@ def draw_enhanced_overlay(frame, mode_controller, tracking_status):
                 config.FONT, 0.6, config.COLOR_TEXT, 1)
     
     # Controls hint
-    cv2.putText(status_bar, "V:Voice | D:Describe | M:Mode | Q:Quit", (width - 500, 30),
+    cv2.putText(status_bar, "C:Record | S:Stop | D:Describe | M:Mode | Q:Quit", (width - 620, 30),
                 config.FONT, 0.5, (200, 200, 200), 1)
     
     # Apply status bar
@@ -153,8 +152,13 @@ class NonBlockingConsole:
         self.select = select
         self.tty = tty
         self.termios = termios
-        self.old_settings = termios.tcgetattr(sys.stdin)
+        self.old_settings = None
         self.enabled = False
+        try:
+            if sys.stdin.isatty():
+                self.old_settings = termios.tcgetattr(sys.stdin)
+        except Exception:
+            self.old_settings = None
 
     def __enter__(self):
         try:
@@ -188,7 +192,14 @@ def main():
     audio_coordinator = None
     voice_controller = None
     mode_controller = None
-    
+    hardware_interface = None
+    shared_state = None
+    vision_thread = None
+    voice_command_thread = None
+    voice_enabled = False
+    learning_module = None
+    ui_enabled = bool(os.environ.get("DISPLAY")) and os.environ.get("NOVA_HEADLESS") != "1"
+
     # Initialize Console Input
     console = NonBlockingConsole()
     
@@ -203,11 +214,11 @@ def main():
         # Enter non-blocking mode
         with console:
             # === Initialization ===
-            print("[1/5] Initializing Vision Controller...")
+            print("[1/7] Initializing Vision Controller...")
             vision_controller = VisionController()
             
-            # [2/5] Initializing Audio Controller
-            print("\n[2/5] Initializing Audio Controller...")
+            # [2/7] Initializing Audio Controller
+            print("\n[2/7] Initializing Audio Controller...")
             audio_controller = None
             if config.ENABLE_HRTF:
                 try:
@@ -225,16 +236,23 @@ def main():
                 from audio_module_multi import MultiAudioController
                 audio_controller = MultiAudioController()
             
-            print("[3/5] Initializing Voice Controller...")
+            print("[3/7] Initializing Voice Controller...")
             try:
-                voice_controller = VoiceController()
-                voice_enabled = True
+                if config.ENABLE_VOICE:
+                    from voice_control import VoiceController
+                    voice_controller = VoiceController()
+                    voice_enabled = True
+                else:
+                    print("   Voice features disabled in config.")
             except Exception as e:
                 print(f"⚠️ Voice control unavailable: {e}")
                 print("   Continuing without voice features...")
                 voice_enabled = False
+
+            if not ui_enabled:
+                print("   GUI display unavailable or headless mode requested. Running in terminal-only mode.")
             
-            print("\n[4/5] Initializing Mode Controller...")
+            print("\n[4/7] Initializing Mode Controller...")
             mode_controller = ModeController()
             mode_controller.set_frame_dimensions(
                 vision_controller.frame_width,
@@ -244,7 +262,7 @@ def main():
             # === Initialize Learning Module ===
             learning_module = None
             if config.ENABLE_LEARNING:
-                print("\n[5/5] Initializing Self-Learning System...")
+                print("\n[5/7] Initializing Self-Learning System...")
                 from learning_module import LearningModule
                 learning_module = LearningModule()
                 stats = learning_module.get_stats()
@@ -252,7 +270,7 @@ def main():
                 print(f"   [LEARNING] Cache: {stats['cached_images']} images ({stats['cache_size_mb']:.1f} MB)")
             
             # === Initialize Hardware Interface ===
-            print("\n[5/6] Initializing Hardware Interface (Arduino)...")
+            print("\n[6/7] Initializing Hardware Interface (Arduino)...")
             hardware_interface = None
             try:
                 from hardware_interface import HardwareInterface, DummyHardwareInterface
@@ -260,43 +278,128 @@ def main():
                     hardware_interface = HardwareInterface()
                     if not hardware_interface.is_connected:
                         print("⚠️ Hardware connection failed. Using dummy interface.")
+                        hardware_interface.stop()
                         hardware_interface = DummyHardwareInterface()
                 else:
+                    print("   Hardware disabled in config.")
                     hardware_interface = DummyHardwareInterface()
             except Exception as e:
                 print(f"⚠️ Hardware init failed: {e}")
                 from hardware_interface import DummyHardwareInterface
                 hardware_interface = DummyHardwareInterface()
 
+            if not config.ENABLE_LEARNING:
+                print("   Learning kept optional and off by default.")
+            elif learning_module is None:
+                print("   Learning unavailable; continuing without persistence.")
+
+            if not config.ENABLE_HARDWARE:
+                print("   Hardware kept optional and off by default.")
+
+            if not config.ENABLE_HRTF:
+                print("   HRTF/reverb kept optional and off by default.")
+            elif type(audio_controller).__name__ == 'MultiAudioController':
+                print("   Using stable multi-audio fallback.")
+
+            if not config.ENABLE_CHAT_PERSONA:
+                print("   Free-form chat persona kept optional and off by default.")
+
+            if voice_enabled and voice_controller and not getattr(voice_controller, 'groq_client', None):
+                print("   Voice commands unavailable because Groq STT could not initialize.")
+                voice_controller.close()
+                voice_controller = None
+                voice_enabled = False
+
+            if voice_enabled and config.ENABLE_CHAT_PERSONA and not getattr(voice_controller, 'chat_persona_enabled', False):
+                print("   Chat persona unavailable; command routing remains available.")
+
+            if not voice_enabled and config.ENABLE_VOICE:
+                print("   Voice path unavailable at runtime.")
+
+            if voice_controller and not config.ENABLE_CHAT_PERSONA:
+                voice_controller.chat_persona_enabled = False
+                voice_controller.gemini_chat_client = None
+
+            if hardware_interface is None:
+                from hardware_interface import DummyHardwareInterface
+                hardware_interface = DummyHardwareInterface()
+
+            if learning_module and not hasattr(learning_module, 'save_detection'):
+                learning_module = None
+
+            if voice_controller and not hasattr(voice_controller, 'parse_command'):
+                voice_controller.close()
+                voice_controller = None
+                voice_enabled = False
+
+            if not voice_enabled:
+                voice_controller = None
+
+            if audio_controller is None:
+                raise RuntimeError("Audio controller failed to initialize")
+
+            if hardware_interface is None:
+                raise RuntimeError("Hardware interface failed to initialize")
+
+            if mode_controller is None:
+                raise RuntimeError("Mode controller failed to initialize")
+
+            if vision_controller is None:
+                raise RuntimeError("Vision controller failed to initialize")
+
+            if voice_enabled and voice_controller:
+                print("   Voice command path remains available.")
+
+            if voice_enabled and voice_controller and getattr(voice_controller, 'chat_persona_enabled', False):
+                print("   Voice chat persona available.")
+            elif voice_enabled:
+                print("   Voice commands available without free-form chat persona.")
+
+            if type(hardware_interface).__name__ == 'DummyHardwareInterface':
+                print("   Continuing without live hardware features.")
+
+            if learning_module is None and not config.ENABLE_LEARNING:
+                print("   Continuing without learning features.")
+
+            if not voice_enabled:
+                print("   Continuing without voice command features.")
+
             # === Initialize Shared State ===
-            print("\n[6/6] Initializing Shared State & Audio...")
+            print("\n[7/7] Initializing Shared State & Audio...")
             import threading
             from shared_state import SharedGameState
             shared_state = SharedGameState()
-            
-            # Start Audio Thread with shared_state
-            audio_controller.start_stream(shared_state)
-            
-            # Initialize and start AudioCoordinator for spatial audio
+
+            if not audio_controller.start_stream(shared_state):
+                raise RuntimeError("Audio stream failed to start")
             audio_coordinator = AudioCoordinator(audio_controller, shared_state)
             audio_coordinator.start()
-            
+
             # Voice listener removed - C/S keys handled directly in main loop
-            
+
             print("\n" + "=" * 70)
             print("SYSTEM READY")
             print("=" * 70)
-            print("Controls (Window OR Terminal):")
-            print("   C - Start recording (voice)")
-            print("   S - Stop and transcribe (voice)")
-            print("   D - Describe scene")
-            print("   F - Find objects (manual detection)" if config.MANUAL_MODE else "")
-            print("   M - Cycle modes")
-            print("   N - Normal Mode (Reset)")
-            print("   R - Re-acquire")
-            print("   Q - Quit")
+            if ui_enabled or console.enabled:
+                print("Controls:")
+                if voice_enabled:
+                    print("   C - Start recording (voice)")
+                    print("   S - Stop and transcribe (voice)")
+                print("   D - Describe scene")
+                if config.MANUAL_MODE:
+                    print("   F - Find objects (manual detection)")
+                print("   M - Cycle modes")
+                print("   N - Normal Mode (Reset)")
+                print("   R - Re-acquire")
+                print("   Q - Quit")
+            else:
+                print("Controls:")
+                print("   Ctrl+C - Quit")
             if config.MANUAL_MODE:
-                print(f"\n[MODE] MANUAL MODE: Press 'F' to trigger detection")
+                if ui_enabled or console.enabled:
+                    print(f"\n[MODE] MANUAL MODE: Press 'F' to trigger detection")
+                else:
+                    print(f"\n[MODE] MANUAL MODE: Manual detection is available when running with a window or terminal input.")
             if voice_enabled:
                 print(f"\n[VOICE] Voice Commands:")
                 print("   'Track [object]' - Track specific object")
@@ -305,43 +408,33 @@ def main():
                 print("   '[Mode] mode' - Switch modes")
                 print("   'Stop tracking' - Clear all objects")
             print("=" * 70 + "\n")
-        
+
             # Vision Thread Function
             def vision_worker():
                 print("[VISION] Vision thread started")
-                
+
                 while shared_state.is_running:
-                    # 1. Get latest frame
                     frame = shared_state.get_latest_frame()
                     if frame is None:
                         time.sleep(0.01)
                         continue
-                        
-                    # 2. Check for Async Detection Results (Non-blocking)
+
                     detections = vision_controller.check_reacquisition_result()
                     if detections is not None:
                         print(f"[VISION] Async detection complete. Processing {len(detections)} objects...")
-                        
-                        # Process results on CURRENT frame
-                        # Note: Detections are from the past (approx 1-2s ago), but we merge them
-                        # intelligently. If tracker has kept up, we won't overwrite it with old data.
+
                         count = mode_controller.process_detections(detections, frame)
-                        
+
                         if count > 0:
-                            # Apply mode-specific filtering (e.g., SOCIAL mode only tracks people)
                             if mode_controller.should_filter_objects():
                                 filter_labels = mode_controller.get_object_filter()
                                 mode_controller.object_manager.filter_by_labels(filter_labels)
                                 print(f"   [VISION] Filtered to {filter_labels} only")
-                            
-                            # Apply max objects limit from mode config
+
                             max_objects = mode_controller.get_max_objects()
                             mode_controller.object_manager.limit_objects(max_objects)
-                            
-                            # Initialize trackers for NEW objects only
                             mode_controller.object_manager.init_all_trackers(frame)
-                            
-                            # Save to learning database
+
                             if learning_module:
                                 for obj in mode_controller.object_manager.objects:
                                     if obj.bbox:
@@ -351,68 +444,48 @@ def main():
                                             vision_controller.frame_height,
                                             context=obj.context
                                         )
-                            
-                            # We can't easily check if this was a "manual" detect command here since it's async
-                            # But we can check if we should speak based on recent commands or state
-                            if voice_enabled: 
+
+                            if voice_enabled and voice_controller:
                                 voice_controller.speak(f"Found {count} objects", async_mode=True)
 
-                    # 3. Handle "detect" command (Start Async)
                     command = shared_state.get_next_command()
                     should_detect = (command == "detect")
-                    
+
                     if should_detect:
                         if not vision_controller.is_searching:
                             print("\n[VISION] Vision Thread: Starting ASYNC detection...")
-                            
-                            # OPTIMIZATION: Resize for faster upload/processing
+
                             if frame is None or frame.size == 0:
                                 print("[WARNING] Empty frame, skipping detection")
                                 continue
-                                
+
                             small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
-                            
-                            # Start Async Detection
                             prompt = mode_controller.get_detection_prompt()
                             vision_controller.start_reacquisition_multi(small_frame, prompt)
                         else:
                             print("[WARNING] Detection already in progress, skipping request.")
-                    
-                    
-                    # 4. Run Trackers (OpenCV) - High Frequency
-                    # Only track if we have objects
+
                     if mode_controller.object_manager.objects:
-                        # Update trackers
                         mode_controller.object_manager.update_trackers(frame)
-                        
-                        # Update shared state so audio thread can generate sounds
                         objects = mode_controller.object_manager.objects
                         status = "TRACKING" if objects else "READY"
                         shared_state.update_tracking(objects, status)
                     else:
                         shared_state.update_tracking([], "READY")
-                    
-                    # 4. Check for Lost Threats (Fallback Logic)
-                    # Attempt Local Recovery First
+
                     for obj in mode_controller.object_manager.objects:
                         if obj.is_lost and obj.template is not None:
-                            # Try local recovery
                             success, new_bbox = vision_controller.attempt_local_recovery(frame, obj)
                             if success:
-                                # Re-initialize tracker
                                 obj.bbox = new_bbox
                                 mode_controller.object_manager.init_tracker(obj.id, frame)
                                 obj.is_lost = False
                                 obj.lost_time = None
-                                # Update template with new view
                                 mode_controller.object_manager.update_template(obj, frame)
-                                
-                        # Update template if tracking is good (every 1s roughly)
                         elif not obj.is_lost and obj.tracker:
                             if time.time() - obj.last_template_update > 1.0:
                                 mode_controller.object_manager.update_template(obj, frame)
 
-                    # Check for stale trackers (30s timeout)
                     if mode_controller.object_manager.cleanup_stale_trackers(max_age=30.0):
                         print("[VISION] Stale trackers removed. Triggering re-scan.")
                         shared_state.add_command("detect")
@@ -420,46 +493,38 @@ def main():
                     if mode_controller.check_lost_threats():
                         print("[WARNING] Critical threat lost! Forcing re-scan...")
                         shared_state.add_command("detect")
-                        if voice_enabled:
+                        if voice_enabled and voice_controller:
                             voice_controller.speak("Lost track. Rescanning.", async_mode=True)
-                        
-                    # === VISION UPDATE FREQUENCY ===
-                    # Vision runs slower than UI to save CPU
-                    time.sleep(0.05) # 20 FPS for vision processing
-                
+
+                    time.sleep(0.05)
+
                 print("[VISION] Vision thread stopped")
-        
-            # Start vision thread
+
             vision_thread = threading.Thread(target=vision_worker, daemon=True)
             vision_thread.start()
-            
-            print("\n[SYSTEM] System is live! Press 'Q' to quit.")
-            
+
+            if ui_enabled or console.enabled:
+                print("\n[SYSTEM] System is live! Press 'Q' to quit.")
+            else:
+                print("\n[SYSTEM] System is live! Press Ctrl+C to quit.")
+
             # === Main Application Loop (Video/UI Only) ===
             try:
-                # Initialize frame capture variable at loop scope
                 captured_frame_for_qa = None
-                
-                # Performance: Pre-allocate display frame buffer
                 display_frame_buffer = None
                 last_frame_shape = None
-                
-                # FPS tracking
                 fps_frame_count = 0
                 fps_start_time = time.time()
                 current_fps = 0.0
-                
-                # Error tracking
                 consecutive_frame_failures = 0
                 max_frame_failures = 10
-                
+                voice_recording_audio_paused = False
+                voice_command_busy = False
+
                 while True:
                     if not shared_state.is_running:
                         break
-                    
-                    loop_start = time.time()
-                    
-                    # 1. Read current frame
+
                     ret, frame = vision_controller.read_frame()
                     if not ret or frame is None:
                         consecutive_frame_failures += 1
@@ -468,50 +533,35 @@ def main():
                             break
                         time.sleep(0.01)
                         continue
-                    
-                    # Success - reset counter
+
                     consecutive_frame_failures = 0
-                    
-                    # === OPTIMIZED ROTATION LOGIC ===
+
                     h, w = frame.shape[:2]
-                    # Process only right half + rotate + resize in one go
                     right_half = frame[:, w // 2:]
                     rotated = cv2.rotate(right_half, cv2.ROTATE_90_CLOCKWISE)
                     frame = cv2.resize(rotated, (config.CAMERA_WIDTH, config.CAMERA_HEIGHT))
-                    
-                    # Update dimensions only when needed (avoid repeated checks)
+
                     if config.CAMERA_WIDTH != mode_controller.frame_width:
                         mode_controller.set_frame_dimensions(config.CAMERA_WIDTH, config.CAMERA_HEIGHT)
                         vision_controller.frame_width = config.CAMERA_WIDTH
                         vision_controller.frame_height = config.CAMERA_HEIGHT
-        
-                    # 2. Update Shared State (zero-copy reference swap)
+
                     shared_state.update_frame(frame)
-                    
-                    # 3. Get tracking state efficiently
                     objects, status = shared_state.get_tracking_state()
-                    
-                    # 4. Draw Overlay - optimized path
                     mode_controller.object_manager.objects = objects
-                    
-                    # Reuse display buffer if shape matches (avoid reallocation)
+
                     if display_frame_buffer is None or frame.shape != last_frame_shape:
                         display_frame_buffer = frame.copy()
                         last_frame_shape = frame.shape
                     else:
-                        # Copy into existing buffer (faster than allocating new)
                         np.copyto(display_frame_buffer, frame)
-                    
-                    # Only draw overlay if we have objects or status changed
+
                     if objects or status != "READY":
-                        display_frame_buffer = draw_enhanced_overlay(
-                            display_frame_buffer, mode_controller, status
-                        )
-                    
-                    # 5. Display Frame
-                    cv2.imshow("Nova Assistive Glasses", display_frame_buffer)
-                    
-                    # Calculate and update FPS
+                        display_frame_buffer = draw_enhanced_overlay(display_frame_buffer, mode_controller, status)
+
+                    if ui_enabled:
+                        cv2.imshow("Nova Assistive Glasses", display_frame_buffer)
+
                     fps_frame_count += 1
                     elapsed = time.time() - fps_start_time
                     if elapsed >= 1.0:
@@ -519,37 +569,26 @@ def main():
                         shared_state.set_fps(current_fps)
                         fps_frame_count = 0
                         fps_start_time = time.time()
-                    
-                    # 6. Handle Input (Window OR Terminal)
-                    key = cv2.waitKey(1) & 0xFF
-                    
-                    # Also check terminal input specifically
+
+                    key = (cv2.waitKey(1) & 0xFF) if ui_enabled else -1
                     term_key = console.get_key()
                     if term_key:
                         key = ord(term_key.lower())
-                    
+
                     if key == ord('q') or key == ord('Q'):
                         break
-                    
-                    # Check Hardware Inputs (Standalone - doesn't block key handling)
+
                     if hardware_interface:
                         pressure = hardware_interface.get_pressure()
                         if pressure > config.PRESSURE_THRESHOLD:
-                             print(f"************ SQUEEZE DETECTED ({pressure}) ************")
-                             # Potential action: Trigger Stop or Record?
-                             # For now just log it to prove it works.
-                    
-                    # Key handlers (separate from hardware check)
+                            print(f"************ SQUEEZE DETECTED ({pressure}) ************")
+
                     if key == ord('f') or key == ord('F'):
                         print("⚡ Triggering detection...")
                         shared_state.add_command("detect")
                     elif key == ord('c') or key == ord('C'):
-                        if voice_enabled:
-                            # 1. Stop any ongoing TTS/Audio immediately (Prevent Segfault)
+                        if voice_enabled and voice_controller:
                             voice_controller.stop_speaking()
-                            
-                            # 2. INSTANT CAPTURE: Grab frame immediately when button is pressed
-                            # This ensures we see exactly what the user is pointing at
                             frame_for_capture = shared_state.peek_frame()
                             if frame_for_capture is not None:
                                 captured_frame_for_qa = frame_for_capture.copy()
@@ -558,66 +597,69 @@ def main():
                                 captured_frame_for_qa = None
                                 print("[WARNING] No frame available for capture")
 
-                            # 3. Stop Tracking (Clear "F Mode")
                             mode_controller.object_manager.clear()
                             shared_state.update_tracking([], "READY")
 
-                            # 4. Start Recording
-                            print("\n[VOICE] Recording started (press 'S' to stop)")
-                            voice_controller.start_recording()
+                            if audio_controller and audio_controller.running:
+                                audio_controller.pause_stream()
+                                voice_recording_audio_paused = True
+
+                            if not voice_controller.start_recording():
+                                if audio_controller and voice_recording_audio_paused:
+                                    audio_controller.resume_stream()
+                                    voice_recording_audio_paused = False
+                                print("[ERROR] Failed to start voice recording")
                         else:
                             print("[ERROR] Voice control not enabled")
                     elif key == ord('s') or key == ord('S'):
-                        if voice_enabled and voice_controller.is_recording:
-                            # Run voice processing in a separate thread to avoid blocking UI
-                            # Capture context variables
-                            current_qa_frame = captured_frame_for_qa if 'captured_frame_for_qa' in locals() else None
-                            current_frame = frame.copy()
-                            
-                            def process_voice_thread(qa_frame, live_frame):
-                                # Stop recording and get transcription
-                                text = voice_controller.stop_recording()
-                                
-                                # Resume HRTF audio
-                                if audio_controller:
-                                    audio_controller.resume_stream()
-                                    
-                                if text:
-                                    print(f"[VOICE] Voice: {text}")
-                                    # Handle voice commands
-                                    command = voice_controller.parse_command(text)
-                                    if command:
+                        if voice_enabled and voice_controller and voice_controller.is_recording:
+                            if voice_command_busy:
+                                print("[VOICE] Still processing previous command")
+                            else:
+                                current_qa_frame = captured_frame_for_qa if 'captured_frame_for_qa' in locals() else None
+                                current_frame = frame.copy()
+                                voice_command_busy = True
+
+                                def process_voice_thread(qa_frame, live_frame):
+                                    nonlocal voice_recording_audio_paused, voice_command_busy, voice_command_thread
+                                    try:
+                                        text = voice_controller.stop_recording()
+
+                                        if audio_controller and voice_recording_audio_paused:
+                                            audio_controller.resume_stream()
+                                            voice_recording_audio_paused = False
+
+                                        if not text or not shared_state.is_running:
+                                            return
+
+                                        print(f"[VOICE] Voice: {text}")
+                                        command = voice_controller.parse_command(text)
+                                        if not command or not shared_state.is_running:
+                                            return
+
                                         intent = command["intent"]
                                         params = command.get("params", {})
-                                        
+
                                         if intent == "track_object":
                                             obj_name = params.get("object", "phone")
                                             mode_controller.set_target_object(obj_name)
                                             mode_controller.set_mode(config.NavigationMode.NAVIGATION)
                                             voice_controller.speak(f"Tracking {obj_name}", async_mode=True)
                                             shared_state.add_command("detect")
-                                        
                                         elif intent.startswith("mode_"):
                                             mode_name = intent.replace("mode_", "")
                                             if mode_controller.set_mode(mode_name):
                                                 voice_controller.speak(f"{mode_name} mode activated", async_mode=True)
                                                 shared_state.add_command("detect")
-                                        
                                         elif intent == "describe_scene":
                                             print("[VISION] Describing scene...")
                                             vision_controller.describe_scene(live_frame, voice_controller)
-                                        
                                         elif intent == "visual_qa":
                                             question = params.get("question", "What is this?")
                                             print(f"[VISION] Asking AI: {question}")
-                                            
-                                            # Use the frame captured at the START of recording (Instant Capture)
                                             target_frame = qa_frame if qa_frame is not None else live_frame
-                                            
-                                            # Pass history for context
                                             history = voice_controller.conversation_manager.get_context_string()
                                             vision_controller.ask_about_scene(target_frame, question, voice_controller, history)
-                                        
                                         elif intent == "recall_object":
                                             obj_name = params.get("object", "object")
                                             if learning_module:
@@ -633,101 +675,102 @@ def main():
                                                     voice_controller.speak(response, async_mode=True)
                                             else:
                                                 voice_controller.speak("Learning system not enabled", async_mode=True)
-                                        
                                         elif intent == "direct_response":
                                             response = params.get("response", "")
                                             print(f"[AI] Nova: {response}")
                                             voice_controller.speak(response, async_mode=True)
-
                                         elif intent == "chat_with_nova":
                                             text = params.get("text", "")
                                             voice_controller.chat_with_nova(text)
-                                        
                                         elif intent == "stop_tracking":
                                             mode_controller.object_manager.clear()
                                             voice_controller.speak("Tracking stopped", async_mode=True)
                                             shared_state.update_tracking([], "READY")
-                                        
                                         elif intent == "help":
                                             voice_controller.speak(voice_controller.get_help_text(), async_mode=False)
-                                        
                                         elif intent == "quit":
                                             voice_controller.speak("Goodbye", async_mode=True)
                                             time.sleep(1)
                                             shared_state.is_running = False
-                                        
-                                        elif intent == "unknown":
+                                        else:
                                             voice_controller.speak("Sorry, I didn't understand that command", async_mode=True)
-                            
-                            # Start thread
-                            threading.Thread(target=process_voice_thread, 
-                                           args=(current_qa_frame, current_frame), 
-                                           daemon=True).start()
-                    
+                                    finally:
+                                        voice_command_busy = False
+                                        voice_command_thread = None
+
+                                voice_command_thread = threading.Thread(target=process_voice_thread, args=(current_qa_frame, current_frame), daemon=True)
+                                voice_command_thread.start()
                     elif key == ord('d') or key == ord('D'):
                         print("\n[VISION] Describing scene...")
-                        if voice_enabled:
+                        if voice_enabled and voice_controller:
                             vision_controller.describe_scene(frame, voice_controller)
                         else:
                             description = vision_controller.get_scene_description(frame)
                             print(f"Scene: {description}")
-                    
                     elif key == ord('m') or key == ord('M'):
-                        # Hardened mode cycling
                         available_modes = [
-                            config.NavigationMode.NAVIGATION, 
+                            config.NavigationMode.NAVIGATION,
                             config.NavigationMode.OBSTACLE,
-                            config.NavigationMode.SOCIAL, 
+                            config.NavigationMode.SOCIAL,
                             config.NavigationMode.EXPLORATION
                         ]
                         try:
                             current_idx = available_modes.index(mode_controller.current_mode)
                         except ValueError:
-                            current_idx = -1 # Start from beginning
-                            
+                            current_idx = -1
+
                         next_mode = available_modes[(current_idx + 1) % len(available_modes)]
                         mode_controller.set_mode(next_mode)
-                        if voice_enabled:
+                        if voice_enabled and voice_controller:
                             voice_controller.speak(f"{next_mode} mode", async_mode=True)
                         shared_state.add_command("detect")
-                    
                     elif key == ord('n') or key == ord('N'):
                         print("\n[SYSTEM] System Reset: Normal Mode")
                         mode_controller.set_mode(config.NavigationMode.EXPLORATION)
                         mode_controller.object_manager.clear()
-                        # Ensure voice controller is ready (stop any recording)
-                        if voice_enabled and voice_controller.is_recording:
+                        if voice_enabled and voice_controller and voice_controller.is_recording:
                             voice_controller.stop_recording()
-                        if voice_enabled:
+                            if audio_controller and voice_recording_audio_paused:
+                                audio_controller.resume_stream()
+                                voice_recording_audio_paused = False
+                        if voice_enabled and voice_controller:
                             voice_controller.speak("Normal mode", async_mode=True)
                         shared_state.add_command("detect")
-                    
                     elif key == ord('r') or key == ord('R'):
                         print("\n[SYSTEM] Manual re-acquisition...")
                         mode_controller.object_manager.clear()
                         shared_state.add_command("detect")
-                        
-                    # Wait for 1ms to allow UI updates
-                    # time.sleep(0.001) # Not needed with waitKey(1)
 
             except KeyboardInterrupt:
                 print("\n[SYSTEM] Interrupted by user")
-            finally:
-                shared_state.is_running = False # Signal threads to stop
-                vision_thread.join(timeout=5) # Wait for vision thread to finish
-                if audio_coordinator:
-                    audio_coordinator.stop()
-                audio_controller.stop_stream()
-                vision_controller.release()
-                cv2.destroyAllWindows()
 
-    
     except KeyboardInterrupt:
         print("\n\n[SYSTEM] Program interrupted by user")
     except Exception as e:
         print(f"\n[ERROR] Critical error: {e}")
         import traceback
         traceback.print_exc()
+    finally:
+        if shared_state:
+            shared_state.is_running = False
+        if vision_thread:
+            vision_thread.join(timeout=5)
+        if voice_command_thread and voice_command_thread.is_alive():
+            voice_command_thread.join(timeout=5)
+        if audio_coordinator:
+            audio_coordinator.stop()
+        if voice_controller:
+            voice_controller.close()
+        if hardware_interface:
+            hardware_interface.stop()
+        if learning_module:
+            learning_module.close()
+        if audio_controller:
+            audio_controller.stop_stream()
+        if vision_controller:
+            vision_controller.release()
+        if ui_enabled:
+            cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

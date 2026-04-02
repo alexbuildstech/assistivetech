@@ -292,7 +292,8 @@ class VisionController:
             cleaned_text = self._extract_json(response.text)
             if not cleaned_text:
                 return []
-            return json.loads(cleaned_text)
+            detections = json.loads(cleaned_text)
+            return detections if isinstance(detections, list) else []
         except Exception as e:
             print(f"[ERROR] Multi-detection error: {e}")
             return []
