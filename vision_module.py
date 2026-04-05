@@ -154,6 +154,11 @@ class VisionController:
         """
         Robust camera initialization - tries multiple indices if needed.
         """
+        if cv2 is None:
+            print("[ERROR] OpenCV not available. Continuing in headless mode.")
+            self.cap = None
+            return
+
         indices_to_try = (
             [camera_index] if camera_index is not None else config.CAMERA_INDICES
         )

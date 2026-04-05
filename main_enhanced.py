@@ -4,8 +4,6 @@ Enhanced main application with voice control, multi-object tracking,
 intelligent mode switching, and scene understanding.
 """
 
-import cv2
-import numpy as np
 import time
 import config
 from vision_module import VisionController
@@ -15,6 +13,16 @@ import json
 import re
 import os
 from audio_coordinator import AudioCoordinator
+
+try:
+    import cv2
+    import numpy as np
+
+    CV2_AVAILABLE = True
+except ImportError:
+    cv2 = None
+    np = None
+    CV2_AVAILABLE = False
 
 
 def draw_enhanced_overlay(frame, mode_controller, tracking_status):
