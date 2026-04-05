@@ -4,19 +4,29 @@ Uses Groq Whisper for STT and Edge-TTS for high-quality speech synthesis.
 Based on nova/novastt.py implementation.
 """
 
-import sounddevice as sd
-import numpy as np
 import io
 import wave
 import threading
 import asyncio
-from groq import Groq
-from edge_tts import Communicate
 import subprocess
 import shutil
 import config
 import re
 import os
+
+try:
+    import sounddevice as sd
+    import numpy as np
+    from groq import Groq
+    from edge_tts import Communicate
+
+    VOICE_DEPS_AVAILABLE = True
+except ImportError:
+    sd = None
+    np = None
+    Groq = None
+    Communicate = None
+    VOICE_DEPS_AVAILABLE = False
 
 from conversation_manager import ConversationManager
 
@@ -29,7 +39,7 @@ class VoiceController:
     - C/S key control for recording
     """
 
-    GROQ_API_KEY = getattr(config, 'GROQ_API_KEY', None)
+    GROQ_API_KEY = getattr(config, "GROQ_API_KEY", None)
     EDGE_VOICE = "en-US-AndrewNeural"
     EDGE_RATE = "+15%"
 
@@ -58,17 +68,21 @@ class VoiceController:
         self.current_tts_generation = None
         self._shutdown = threading.Event()
         self._tts_thread = None
-        self.chat_persona_enabled = getattr(config, 'ENABLE_CHAT_PERSONA', False)
+        self.chat_persona_enabled = getattr(config, "ENABLE_CHAT_PERSONA", False)
 
         self.groq_client = self._initialize_groq_client()
-        self.gemini_chat_client = self._initialize_gemini_chat() if self.chat_persona_enabled else None
+        self.gemini_chat_client = (
+            self._initialize_gemini_chat() if self.chat_persona_enabled else None
+        )
         self.player_command = self._get_player_command()
         self.tts_temp_dir = "/dev/shm" if os.path.exists("/dev/shm") else "/tmp"
 
         print("[VOICE] Advanced VoiceController initialized")
         print(f"   STT: Groq Whisper ({config.WHISPER_MODEL})")
         print(f"   TTS: Edge-TTS ({self.EDGE_VOICE})")
-        print(f"   Chat persona: {'enabled' if self.chat_persona_enabled else 'disabled'}")
+        print(
+            f"   Chat persona: {'enabled' if self.chat_persona_enabled else 'disabled'}"
+        )
         print("   History: conversation_history.json")
         print("   Controls: Call start_recording() and stop_recording() directly")
 
@@ -89,6 +103,7 @@ class VoiceController:
     def _initialize_gemini_chat(self):
         try:
             from google import genai
+
             return genai.Client(api_key=config.API_KEY)
         except Exception as e:
             print(f"[ERROR] Failed to initialize Gemini for chat: {e}")
@@ -98,7 +113,17 @@ class VoiceController:
         if shutil.which("mpv"):
             return ["mpv", "--no-terminal", "--audio-buffer=1.0", "--keep-open=no", "-"]
         if shutil.which("ffplay"):
-            return ["ffplay", "-nodisp", "-autoexit", "-loglevel", "warning", "-fflags", "nobuffer", "-i", "-"]
+            return [
+                "ffplay",
+                "-nodisp",
+                "-autoexit",
+                "-loglevel",
+                "warning",
+                "-fflags",
+                "nobuffer",
+                "-i",
+                "-",
+            ]
         if shutil.which("mpg123"):
             return ["mpg123", "-q", "--buffer", "8192", "-"]
         print("[WARNING] No audio player found (install mpv, ffmpeg, or mpg123)")
@@ -139,7 +164,7 @@ class VoiceController:
                 blocksize=self.STT_CHUNK,
                 dtype=self.STT_DTYPE,
                 channels=self.STT_CHANNELS,
-                callback=audio_callback
+                callback=audio_callback,
             )
             self.stream.start()
             return True
@@ -206,7 +231,7 @@ class VoiceController:
                 file=("audio.wav", audio_data),
                 model=config.WHISPER_MODEL,
                 language="en",
-                timeout=20
+                timeout=20,
             )
             if self._shutdown.is_set():
                 return None
@@ -251,7 +276,7 @@ class VoiceController:
         if not text or not text.strip() or self._shutdown.is_set():
             return
 
-        text = re.sub(r'[\U00010000-\U0010ffff]', '', text)
+        text = re.sub(r"[\U00010000-\U0010ffff]", "", text)
         if not text.strip():
             return
 
@@ -261,7 +286,9 @@ class VoiceController:
             generation = self._tts_generation
 
         if async_mode:
-            self._tts_thread = threading.Thread(target=self._speak_sync, args=(text, generation), daemon=True)
+            self._tts_thread = threading.Thread(
+                target=self._speak_sync, args=(text, generation), daemon=True
+            )
             self._tts_thread.start()
         else:
             self._speak_sync(text, generation)
@@ -281,9 +308,28 @@ class VoiceController:
 
     def _build_stream_player_command(self):
         if shutil.which("mpv"):
-            return ["mpv", "--no-terminal", "--vo=null", "--audio-buffer=0", "--cache=no", "--demuxer-max-bytes=128k", "--volume=100", "-"]
+            return [
+                "mpv",
+                "--no-terminal",
+                "--vo=null",
+                "--audio-buffer=0",
+                "--cache=no",
+                "--demuxer-max-bytes=128k",
+                "--volume=100",
+                "-",
+            ]
         if shutil.which("ffplay"):
-            return ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", "-fflags", "nobuffer", "-i", "pipe:0"]
+            return [
+                "ffplay",
+                "-nodisp",
+                "-autoexit",
+                "-loglevel",
+                "quiet",
+                "-fflags",
+                "nobuffer",
+                "-i",
+                "pipe:0",
+            ]
         return None
 
     def _close_player_process(self, process, generation):
@@ -304,15 +350,17 @@ class VoiceController:
 
     async def _async_speak(self, text, generation):
         try:
-            raw_tokens = re.split(r'(#PAUSE\([\d\.]+\))', text)
+            raw_tokens = re.split(r"(#PAUSE\([\d\.]+\))", text)
             chunks = [s for s in raw_tokens if s.strip()]
 
             final_chunks = []
             for chunk in chunks:
-                if re.match(r'#PAUSE\(([\d\.]+)\)', chunk):
+                if re.match(r"#PAUSE\(([\d\.]+)\)", chunk):
                     final_chunks.append(chunk)
                 else:
-                    final_chunks.extend([s for s in re.split(r'(?<=[.!?])\s+', chunk) if s.strip()])
+                    final_chunks.extend(
+                        [s for s in re.split(r"(?<=[.!?])\s+", chunk) if s.strip()]
+                    )
 
             print(f"[TTS] Streaming TTS: Split into {len(final_chunks)} chunks")
 
@@ -321,7 +369,7 @@ class VoiceController:
                     if self._shutdown.is_set() or generation != self._tts_generation:
                         break
 
-                pause_match = re.match(r'#PAUSE\(([\d\.]+)\)', chunk)
+                pause_match = re.match(r"#PAUSE\(([\d\.]+)\)", chunk)
                 if pause_match:
                     await asyncio.sleep(float(pause_match.group(1)))
                     continue
@@ -338,7 +386,7 @@ class VoiceController:
                     cmd,
                     stdin=subprocess.PIPE,
                     stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
+                    stderr=subprocess.DEVNULL,
                 )
                 abort_process = False
                 with self._tts_lock:
@@ -356,48 +404,79 @@ class VoiceController:
                 retries = 2
                 while retries > 0:
                     with self._tts_lock:
-                        if self._shutdown.is_set() or generation != self._tts_generation:
+                        if (
+                            self._shutdown.is_set()
+                            or generation != self._tts_generation
+                        ):
                             retries = 0
                             break
                     try:
-                        print(f"[TTS] Starting stream for chunk {i}: '{chunk[:20]}...' (Retries: {2 - retries})")
-                        communicate = Communicate(chunk, self.EDGE_VOICE, rate=self.EDGE_RATE)
+                        print(
+                            f"[TTS] Starting stream for chunk {i}: '{chunk[:20]}...' (Retries: {2 - retries})"
+                        )
+                        communicate = Communicate(
+                            chunk, self.EDGE_VOICE, rate=self.EDGE_RATE
+                        )
                         chunk_count = 0
                         async for chunk_data in communicate.stream():
                             with self._tts_lock:
-                                if self._shutdown.is_set() or generation != self._tts_generation:
+                                if (
+                                    self._shutdown.is_set()
+                                    or generation != self._tts_generation
+                                ):
                                     chunk_count = None
                                     break
-                                active_process = self.current_mpv_process if self.current_tts_generation == generation else None
-                            if chunk_data["type"] == "audio" and active_process and active_process.stdin:
+                                active_process = (
+                                    self.current_mpv_process
+                                    if self.current_tts_generation == generation
+                                    else None
+                                )
+                            if (
+                                chunk_data["type"] == "audio"
+                                and active_process
+                                and active_process.stdin
+                            ):
                                 chunk_count += 1
                                 try:
                                     active_process.stdin.write(chunk_data["data"])
                                     active_process.stdin.flush()
                                 except (BrokenPipeError, IOError):
-                                    print(f"[WARNING] Player stdin broken at chunk {chunk_count}")
+                                    print(
+                                        f"[WARNING] Player stdin broken at chunk {chunk_count}"
+                                    )
                                     break
 
                         if chunk_count is not None:
-                            print(f"[TTS] Stream complete for chunk {i} ({chunk_count} audio chunks)")
+                            print(
+                                f"[TTS] Stream complete for chunk {i} ({chunk_count} audio chunks)"
+                            )
                         break
                     except Exception as e:
                         retries -= 1
                         print(f"[WARNING] Streaming retry {2 - retries} due to: {e}")
                         if retries == 0:
-                            print(f"[ERROR] Failed to stream chunk {i} after multiple attempts.")
+                            print(
+                                f"[ERROR] Failed to stream chunk {i} after multiple attempts."
+                            )
                         await asyncio.sleep(0.5)
 
                 self._close_player_process(process, generation)
         except Exception as e:
             print(f"[ERROR] Edge-TTS streaming error: {e}")
             with self._tts_lock:
-                process = self.current_mpv_process if self.current_tts_generation == generation else None
+                process = (
+                    self.current_mpv_process
+                    if self.current_tts_generation == generation
+                    else None
+                )
             self._close_player_process(process, generation)
 
     def chat_with_nova(self, text):
         if not self.chat_persona_enabled:
-            self.speak("Chat mode is disabled right now. Ask me to track, describe, read, or find something.", async_mode=True)
+            self.speak(
+                "Chat mode is disabled right now. Ask me to track, describe, read, or find something.",
+                async_mode=True,
+            )
             return
 
         if not self.gemini_chat_client:
@@ -424,14 +503,17 @@ class VoiceController:
                     "system_instruction": config.NOVA_SYSTEM_PROMPT,
                     "temperature": 0.7,
                     "max_output_tokens": 100,
-                }
+                },
             )
             reply = response.text.strip()
             print(f"[AI] Response: {reply}")
             self.speak(reply, async_mode=True)
         except Exception as e:
             print(f"[ERROR] Chat error: {e}")
-            self.speak("Sorry, I encountered an error processing your request.", async_mode=True)
+            self.speak(
+                "Sorry, I encountered an error processing your request.",
+                async_mode=True,
+            )
 
     def parse_command(self, text):
         if not text:
@@ -441,23 +523,43 @@ class VoiceController:
         print(f"[VOICE] Processing input: '{text}'")
         lower_text = text.lower()
 
-        if "describe" in lower_text and ("scene" in lower_text or "surroundings" in lower_text or "around" in lower_text):
+        if "describe" in lower_text and (
+            "scene" in lower_text
+            or "surroundings" in lower_text
+            or "around" in lower_text
+        ):
             print("[VOICE] Command Detected: Describe Scene")
             return {"intent": "describe_scene"}
 
         visual_keywords = [
-            "see", "look", "what is this", "read", "identify",
-            "what's this", "whats this", "tell me what", "what do you think",
-            "try again", "again", "better view", "different", "use your visual",
-            "use the visual", "check", "analyze", "examine"
+            "see",
+            "look",
+            "what is this",
+            "read",
+            "identify",
+            "what's this",
+            "whats this",
+            "tell me what",
+            "what do you think",
+            "try again",
+            "again",
+            "better view",
+            "different",
+            "use your visual",
+            "use the visual",
+            "check",
+            "analyze",
+            "examine",
         ]
         if any(w in lower_text for w in visual_keywords):
             print("[VOICE] Fast Path: Visual Query detected")
             return {"intent": "visual_qa", "params": {"question": text}}
 
-        match = re.search(r"(track|find|follow|locate|search for)\s+(?:the\s+)?(.+)", lower_text)
+        match = re.search(
+            r"(track|find|follow|locate|search for)\s+(?:the\s+)?(.+)", lower_text
+        )
         if match:
-            obj_name = re.sub(r'[^\w\s]', '', match.group(2).strip())
+            obj_name = re.sub(r"[^\w\s]", "", match.group(2).strip())
             print(f"[VOICE] Command Detected: Track '{obj_name}'")
             return {"intent": "track_object", "params": {"object": obj_name}}
 
@@ -479,16 +581,21 @@ class VoiceController:
         if "help" in lower_text or "what can you do" in lower_text:
             return {"intent": "help"}
 
-        recall_match = re.search(r"(where('?s| is| are)( my| the)?|have you seen( my)?|last saw)\s+(.+?)(\?|$)", lower_text)
+        recall_match = re.search(
+            r"(where('?s| is| are)( my| the)?|have you seen( my)?|last saw)\s+(.+?)(\?|$)",
+            lower_text,
+        )
         if recall_match:
-            obj_name = re.sub(r'[^\w\s]', '', recall_match.group(5).strip())
+            obj_name = re.sub(r"[^\w\s]", "", recall_match.group(5).strip())
             print(f"[VOICE] Command Detected: Recall '{obj_name}'")
             return {"intent": "recall_object", "params": {"object": obj_name}}
 
         if not self.chat_persona_enabled:
             return {
                 "intent": "direct_response",
-                "params": {"response": "Chat mode is disabled right now. Ask me to track, describe, read, or find something."}
+                "params": {
+                    "response": "Chat mode is disabled right now. Ask me to track, describe, read, or find something."
+                },
             }
 
         if not self.gemini_chat_client:
@@ -515,7 +622,7 @@ class VoiceController:
                     "system_instruction": config.NOVA_SYSTEM_PROMPT,
                     "temperature": 0.7,
                     "max_output_tokens": 150,
-                }
+                },
             )
             reply = response.text.strip()
 
@@ -538,7 +645,11 @@ class VoiceController:
         self._shutdown.set()
         self.stop_speaking()
         tts_thread = self._tts_thread
-        if tts_thread and tts_thread.is_alive() and tts_thread is not threading.current_thread():
+        if (
+            tts_thread
+            and tts_thread.is_alive()
+            and tts_thread is not threading.current_thread()
+        ):
             tts_thread.join(timeout=1.0)
         self._close_recording_resources()
         with self._recording_lock:

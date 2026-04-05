@@ -3,16 +3,39 @@ Vision Controller Module for Assistive Navigation.
 Handles camera capture, AI-based detection, classical tracking, and self-healing re-acquisition.
 """
 
-import cv2
 import json
-import numpy as np
 import os
 import re
 import threading
 import time
 import io
 import config
-from tenacity import retry, stop_after_attempt, wait_fixed
+
+try:
+    import cv2
+    import numpy as np
+
+    CV2_AVAILABLE = True
+except ImportError:
+    cv2 = None
+    np = None
+    CV2_AVAILABLE = False
+
+try:
+    from tenacity import retry, stop_after_attempt, wait_fixed
+
+    TENACITY_AVAILABLE = True
+except ImportError:
+
+    def retry(stop=None, wait=None):
+        def decorator(fn):
+            return fn
+
+        return decorator
+
+    stop_after_attempt = lambda n: None
+    wait_fixed = lambda n: None
+    TENACITY_AVAILABLE = False
 
 try:
     from google import genai
@@ -39,41 +62,38 @@ class _MockGeminiClient:
         self._call_count = 0
 
     class _MockModels:
-        class _MockGenerator:
-            @staticmethod
-            def generate_content(model=None, contents=None, config=None):
-                prompt_text = ""
-                for item in contents or []:
-                    if isinstance(item, str):
-                        prompt_text = item
-                        break
+        @staticmethod
+        def generate_content(model=None, contents=None, config=None):
+            prompt_text = ""
+            for item in contents or []:
+                if isinstance(item, str):
+                    prompt_text = item
+                    break
 
-                if (
-                    "Detect and return" in prompt_text
-                    or "bounding box" in prompt_text.lower()
-                ):
-                    return _MockGeminiClient._MockResponse(
-                        '[{"box_2d": [200, 300, 500, 600], "label": "Phone [on desk]"}]'
-                    )
-                elif (
-                    "PHYSICAL 3D OBJECTS" in prompt_text
-                    or "Return bounding boxes" in prompt_text
-                ):
-                    return _MockGeminiClient._MockResponse(
-                        '[{"box_2d": [100, 200, 400, 500], "label": "Laptop [on table]"}, '
-                        '{"box_2d": [300, 600, 600, 800], "label": "Coffee Cup [near laptop]"}, '
-                        '{"box_2d": [50, 50, 200, 200], "label": "Person [standing nearby]"}]'
-                    )
-                elif "Describe this scene" in prompt_text:
-                    return _MockGeminiClient._MockResponse(
-                        "I see a desk with a laptop and coffee cup. There's a person standing nearby."
-                    )
-                else:
-                    return _MockGeminiClient._MockResponse(
-                        "I'm Nova. I see what you see, but faster."
-                    )
-
-        models = _MockGenerator()
+            if (
+                "Detect and return" in prompt_text
+                or "bounding box" in prompt_text.lower()
+            ):
+                return _MockGeminiClient._MockResponse(
+                    '[{"box_2d": [200, 300, 500, 600], "label": "Phone [on desk]"}]'
+                )
+            elif (
+                "PHYSICAL 3D OBJECTS" in prompt_text
+                or "Return bounding boxes" in prompt_text
+            ):
+                return _MockGeminiClient._MockResponse(
+                    '[{"box_2d": [100, 200, 400, 500], "label": "Laptop [on table]"}, '
+                    '{"box_2d": [300, 600, 600, 800], "label": "Coffee Cup [near laptop]"}, '
+                    '{"box_2d": [50, 50, 200, 200], "label": "Person [standing nearby]"}]'
+                )
+            elif "Describe this scene" in prompt_text:
+                return _MockGeminiClient._MockResponse(
+                    "I see a desk with a laptop and coffee cup. There's a person standing nearby."
+                )
+            else:
+                return _MockGeminiClient._MockResponse(
+                    "I'm Nova. I see what you see, but faster."
+                )
 
     @property
     def models(self):
