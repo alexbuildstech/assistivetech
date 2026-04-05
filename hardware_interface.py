@@ -5,57 +5,44 @@ Handles communication with Arduino Mega 2560 and external sensors (Pressure, etc
 
 try:
     import serial
+    SerialException = serial.SerialException
 except ImportError:
     serial = None
+    SerialException = None
 
 import threading
 import time
 import config
 
+
 class HardwareInterface:
     def __init__(self):
-        """Initialize hardware interface."""
         self.serial_port = config.SERIAL_PORT
         self.baud_rate = config.SERIAL_BAUD
         self.connection = None
         self.is_connected = False
         self.running = False
         self.thread = None
-        
-        # Sensor Data Store
-        self.sensor_data = {
-            "pressure": 0,
-            "battery_voltage": 0.0,
-            "last_update": 0
-        }
+        self.sensor_data = {"pressure": 0, "battery_voltage": 0.0, "last_update": 0}
         self.data_lock = threading.Lock()
-        
-        # Connect immediately
         self.connect()
-        
+
     def connect(self):
-        """Attempt to connect to the Serial device."""
         if not config.ENABLE_HARDWARE:
             print("[HARDWARE] Hardware disabled in config.")
             return False
-
         if serial is None:
             print("[HARDWARE] pyserial not installed. Hardware features unavailable.")
             self.is_connected = False
             self.connection = None
             return False
-
         try:
-            self.connection = serial.Serial(
-                self.serial_port,
-                self.baud_rate,
-                timeout=1
-            )
+            self.connection = serial.Serial(self.serial_port, self.baud_rate, timeout=1)
             self.is_connected = True
             print(f"[HARDWARE] Connected to Arduino at {self.serial_port}")
             self.start_reading()
             return True
-        except serial.SerialException as e:
+        except SerialException as e:
             print(f"[HARDWARE] Connection failed: {e}")
             self.is_connected = False
             self.connection = None
@@ -67,7 +54,6 @@ class HardwareInterface:
             return False
 
     def start_reading(self):
-        """Start the background reading thread."""
         if self.thread and self.thread.is_alive():
             return
         self.running = True
@@ -75,7 +61,6 @@ class HardwareInterface:
         self.thread.start()
 
     def stop(self):
-        """Stop hardware interface."""
         self.running = False
         self.is_connected = False
         if self.connection:
@@ -88,11 +73,10 @@ class HardwareInterface:
             self.thread.join(timeout=1.0)
 
     def _read_worker(self):
-        """Worker thread for reading serial data."""
         while self.running and self.is_connected and self.connection:
             try:
                 if self.connection.in_waiting > 0:
-                    line = self.connection.readline().decode('utf-8', errors='ignore').strip()
+                    line = self.connection.readline().decode("utf-8", errors="ignore").strip()
                     self._parse_line(line)
                 else:
                     time.sleep(0.01)
@@ -113,44 +97,33 @@ class HardwareInterface:
             self.stop()
         except Exception:
             pass
-                
+
     def _parse_line(self, line):
-        """
-        Parse raw serial line.
-        Expected formats:
-        - "PRESSURE:512"
-        - "BATTERY:12.4"
-        """
         try:
             if ":" in line:
                 key, value = line.split(":", 1)
-                
                 with self.data_lock:
                     if key == "PRESSURE":
                         self.sensor_data["pressure"] = int(value)
                     elif key == "BATTERY":
                         self.sensor_data["battery_voltage"] = float(value)
-                    
                     self.sensor_data["last_update"] = time.time()
-                    
         except ValueError:
-            pass # Malformed line
+            pass
 
     def get_pressure(self):
-        """Get the latest pressure reading."""
         with self.data_lock:
             return self.sensor_data["pressure"]
-            
+
     def send_feedback(self, intensity=0):
-        """Send haptic/motor command to Arduino."""
         if self.is_connected:
             try:
                 msg = f"HAPTIC:{intensity}\n"
-                self.connection.write(msg.encode('utf-8'))
+                self.connection.write(msg.encode("utf-8"))
             except Exception as e:
                 print(f"[HARDWARE] Write error: {e}")
 
-# Dummy interface for when hardware is missing/disabled
+
 class DummyHardwareInterface:
     def get_pressure(self): return 0
     def send_feedback(self, i): pass
