@@ -5,7 +5,7 @@ Includes advanced features: multi-object tracking, voice control, and intelligen
 
 import os
 
-# Internal helper to load .env without external dependencies
+
 def _load_env_simple():
     env_path = os.path.join(os.path.dirname(__file__), ".env")
     if os.path.exists(env_path):
@@ -16,23 +16,19 @@ def _load_env_simple():
                     key, val = line.split("=", 1)
                     os.environ[key.strip()] = val.strip().strip('"').strip("'")
 
+
 _load_env_simple()
 
-# ============================================================================
-# GEMINI API CONFIGURATION
-# ============================================================================
-API_KEY = os.getenv("GOOGLE_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
-MODEL_ID = "models/gemini-2.0-flash"  # Use stable Gemini 2.0 Flash
-GENERAL_CHAT_MODEL = "models/gemini-2.0-flash" 
+MOCK_MODE = os.getenv("NOVA_MOCK_MODE", "0") == "1"
 
-# ============================================================================
-# GROQ API CONFIGURATION (for advanced Whisper STT & Routing)
-# ============================================================================
+API_KEY = os.getenv("GOOGLE_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
+MODEL_ID = "models/gemini-2.0-flash"
+GENERAL_CHAT_MODEL = "models/gemini-2.0-flash"
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
 WHISPER_MODEL = "whisper-large-v3-turbo"
-GROQ_ROUTER_MODEL = "openai/gpt-oss-20b"  # Intelligent router model
+GROQ_ROUTER_MODEL = "openai/gpt-oss-20b"
 
-# Nova Persona Definition
 NOVA_SYSTEM_PROMPT = """
 You are Nova, an advanced AI vision assistant with a camera.
 Your personality is:
@@ -60,7 +56,6 @@ When answering (if NOT a visual query):
 - If asked who you are, say "I'm Nova. I see what you see, but faster."
 """
 
-# Detection prompts (dynamically selected based on mode)
 DETECTION_PROMPT_NAVIGATION = """
 Detect and return the bounding box of {target_object} in the image.
 The output format must be strictly JSON:
@@ -110,280 +105,164 @@ CRITICAL: Do NOT use markdown formatting, asterisks, bold (**), italics, bracket
 Just use plain, natural sentences. This will be spoken by text-to-speech.
 """
 
-# Default Detection prompt (fallback)
 DETECTION_PROMPT = DETECTION_PROMPT_MULTI_OBJECT
 
-# ============================================================================
-# CAMERA CONFIGURATION
-# ============================================================================
-CAMERA_INDICES = [0, 1, 2]  # Try these camera indices in order
+CAMERA_INDICES = [0, 1, 2]
 TEMP_IMAGE_FILE = "detection_frame.png"
 CAMERA_WIDTH = 1280
 CAMERA_HEIGHT = 720
 
-# ============================================================================
-# AUDIO CONFIGURATION
-# ============================================================================
 AUDIO_FILE = "soothing.wav"
 SAMPLE_RATE = 44100
 AUDIO_BUFFER_SIZE = 4096
 
-# Fallback: Generate a synthetic tone if audio file is missing
-SYNTH_FREQUENCY = 440.0  # A4 note in Hz
-SYNTH_DURATION = 0.5  # seconds
+SYNTH_FREQUENCY = 440.0
+SYNTH_DURATION = 0.5
 
-# ============================================================================
-# SPATIAL MAPPING CONFIGURATION
-# ============================================================================
-# Maximum angle for horizontal deviation (left/right)
 MAX_AZIMUTH_DEGREES = 80
-
-# Maximum angle for vertical deviation (up/down)
 MAX_ELEVATION_DEGREES = 60
-
-# Volume range based on object size/distance
 MIN_VOLUME = 0.0
 MAX_VOLUME = 1.0
 
-# ============================================================================
-# RE-ACQUISITION CONFIGURATION
-# ============================================================================
-# Cooldown between re-acquisition attempts to avoid API spam (OPTIMIZED for i3 hardware)
-REACQUIRE_COOLDOWN_SECONDS = 0.3  # Aggressive for lower latency
+REACQUIRE_COOLDOWN_SECONDS = 0.3
 
-# ============================================================================
-# HARDWARE / PREIPHERALS CONFIGURATION
-# ============================================================================
 ENABLE_HARDWARE = False
-SERIAL_PORT = "/dev/ttyACM0"  # Default for Arduino on Linux
+SERIAL_PORT = "/dev/ttyACM0"
 SERIAL_BAUD = 115200
-PRESSURE_THRESHOLD = 500  # Threshold to trigger "Haptic/Squeeze" event
+PRESSURE_THRESHOLD = 500
 
-# ============================================================================
-# VISUAL DEBUG OVERLAY CONFIGURATION
-# ============================================================================
-# Colors (BGR format for OpenCV)
-COLOR_TRACKING = (0, 255, 0)      # Green
-COLOR_LOST = (0, 0, 255)          # Red
-COLOR_SEARCHING = (0, 255, 255)   # Yellow
-COLOR_OVERLAY_BG = (40, 40, 40)   # Dark gray
-COLOR_TEXT = (255, 255, 255)      # White
+COLOR_TRACKING = (0, 255, 0)
+COLOR_LOST = (0, 0, 255)
+COLOR_SEARCHING = (0, 255, 255)
+COLOR_OVERLAY_BG = (40, 40, 40)
+COLOR_TEXT = (255, 255, 255)
 
-# UI settings
-FONT = 0  # cv2.FONT_HERSHEY_SIMPLEX
+FONT = 0
 FONT_SCALE = 0.6
 FONT_THICKNESS = 2
 LINE_HEIGHT = 30
 
-# ============================================================================
-# MULTI-OBJECT TRACKING CONFIGURATION
-# ============================================================================
-MAX_TRACKED_OBJECTS = 5  # Limit to prevent auditory overload
+MAX_TRACKED_OBJECTS = 5
 
-# Audio signature mapping (frequency in Hz for each object type)
 AUDIO_SIGNATURES = {
     "person": {"type": "heartbeat", "freq": 80, "waveform": "pulse"},
-    "phone": {"type": "tone", "freq": 440, "waveform": "sine"},  # A4 note
+    "phone": {"type": "tone", "freq": 440, "waveform": "sine"},
     "door": {"type": "hum", "freq": 120, "waveform": "sine"},
     "chair": {"type": "click", "freq": 800, "waveform": "square"},
     "table": {"type": "click", "freq": 600, "waveform": "square"},
-    "cup": {"type": "tone", "freq": 660, "waveform": "sine"},  # E5 note
+    "cup": {"type": "tone", "freq": 660, "waveform": "sine"},
     "obstacle": {"type": "warning", "freq": 1000, "waveform": "sawtooth"},
-    "default": {"type": "tone", "freq": 330, "waveform": "sine"},  # E4 note
+    "default": {"type": "tone", "freq": 330, "waveform": "sine"},
 }
 
-# Semantic Threat Priorities (0.0 - 1.0)
-# Higher value = Higher priority for audio focus and collision warning
 THREAT_PRIORITIES = {
-    "person": 1.0,
-    "car": 1.0,
-    "truck": 1.0,
-    "bus": 1.0,
-    "door": 0.8,
-    "stairs": 0.9,
-    "wall": 0.7,
-    "tree": 0.8,
-    "pole": 0.8,
-    "obstacle": 0.9,
-    "chair": 0.4,
-    "table": 0.4,
-    "couch": 0.4,
-    "bed": 0.4,
-    "tv": 0.3,
-    "laptop": 0.2,
-    "phone": 0.1,
-    "cup": 0.1,
-    "bottle": 0.1,
-    "book": 0.1,
-    "pen": 0.05,
-    "default": 0.3
+    "person": 1.0, "car": 1.0, "truck": 1.0, "bus": 1.0,
+    "door": 0.8, "stairs": 0.9, "wall": 0.7, "tree": 0.8, "pole": 0.8,
+    "obstacle": 0.9, "chair": 0.4, "table": 0.4, "couch": 0.4, "bed": 0.4,
+    "tv": 0.3, "laptop": 0.2, "phone": 0.1, "cup": 0.1, "bottle": 0.1,
+    "book": 0.1, "pen": 0.05, "default": 0.3,
 }
 
-# ============================================================================
-# INTELLIGENT MODE CONFIGURATION
-# ============================================================================
+
 class NavigationMode:
-    NAVIGATION = "navigation"      # Track specific target
-    OBSTACLE = "obstacle"          # Avoid obstacles
-    SOCIAL = "social"              # Track people
-    EXPLORATION = "exploration"    # Describe environment
+    NAVIGATION = "navigation"
+    OBSTACLE = "obstacle"
+    SOCIAL = "social"
+    EXPLORATION = "exploration"
 
-DEFAULT_MODE = NavigationMode.EXPLORATION  # Start in exploration mode to detect all objects
 
-# Mode-specific settings
+DEFAULT_MODE = NavigationMode.EXPLORATION
+
 MODE_CONFIGS = {
     NavigationMode.NAVIGATION: {
-        "prompt": DETECTION_PROMPT_NAVIGATION,
-        "max_objects": 1,
-        "audio_focus": "target",
-        "description": "Track a specific object"
+        "prompt": DETECTION_PROMPT_NAVIGATION, "max_objects": 1,
+        "audio_focus": "target", "description": "Track a specific object",
     },
     NavigationMode.OBSTACLE: {
-        "prompt": DETECTION_PROMPT_OBSTACLE,
-        "max_objects": 5,
-        "audio_focus": "closest",
-        "description": "Avoid obstacles in your path"
+        "prompt": DETECTION_PROMPT_OBSTACLE, "max_objects": 5,
+        "audio_focus": "closest", "description": "Avoid obstacles in your path",
     },
     NavigationMode.SOCIAL: {
-        "prompt": DETECTION_PROMPT_MULTI_OBJECT,
-        "max_objects": 5,
-        "audio_focus": "people",
-        "filter": ["person"],  # Only track people
-        "description": "Detect people around you"
+        "prompt": DETECTION_PROMPT_MULTI_OBJECT, "max_objects": 5,
+        "audio_focus": "people", "filter": ["person"],
+        "description": "Detect people around you",
     },
     NavigationMode.EXPLORATION: {
-        "prompt": DETECTION_PROMPT_MULTI_OBJECT,
-        "max_objects": 5,
-        "audio_focus": "all",
-        "description": "Explore your environment"
+        "prompt": DETECTION_PROMPT_MULTI_OBJECT, "max_objects": 5,
+        "audio_focus": "all", "description": "Explore your environment",
     },
 }
 
-# ============================================================================
-# VOICE CONTROL CONFIGURATION
-# ============================================================================
-VOICE_ACTIVATION_KEY = 'v'  # Press 'V' to activate voice input
-VOICE_TIMEOUT = 5  # Seconds to wait for voice command
-VOICE_PHRASE_TIME_LIMIT = 10  # Max seconds for a single phrase
+VOICE_ACTIVATION_KEY = "v"
+VOICE_TIMEOUT = 5
+VOICE_PHRASE_TIME_LIMIT = 10
 
-# Text-to-speech settings
-TTS_RATE = 150  # Words per minute
-TTS_VOLUME = 0.9  # 0.0 to 1.0
+TTS_RATE = 150
+TTS_VOLUME = 0.9
 
-# Voice commands mapping
 VOICE_COMMANDS = {
-    # Object tracking
-    "track": "navigation",
-    "find": "navigation",
-    "follow": "navigation",
-
-    # Mode switching
-    "navigation": "mode_navigation",
-    "obstacle": "mode_obstacle",
-    "social": "mode_social",
-    "explore": "mode_exploration",
-
-    # Actions
-    "describe": "describe_scene",
-    "scene": "describe_scene",
-    "what": "describe_scene",
-    "help": "help",
-    "stop": "stop_tracking",
-    "quit": "quit",
+    "track": "navigation", "find": "navigation", "follow": "navigation",
+    "navigation": "mode_navigation", "obstacle": "mode_obstacle",
+    "social": "mode_social", "explore": "mode_exploration",
+    "describe": "describe_scene", "scene": "describe_scene",
+    "what": "describe_scene", "help": "help",
+    "stop": "stop_tracking", "quit": "quit",
 }
 
 ENABLE_CHAT_PERSONA = False
 ENABLE_VOICE = True
 
-# ============================================================================
-# PREDICTIVE TRACKING CONFIGURATION
-# ============================================================================
 MOTION_PREDICTION_ENABLED = True
-PREDICTION_HORIZON_SECONDS = 0.5  # Predict 0.5 seconds ahead
-MIN_VELOCITY_THRESHOLD = 5  # pixels/frame to consider as "moving"
+PREDICTION_HORIZON_SECONDS = 0.5
+MIN_VELOCITY_THRESHOLD = 5
 
-# ============================================================================
-# PROXIMITY ALERT CONFIGURATION
-# ============================================================================
 PROXIMITY_ZONES = {
-    "safe": {"min": 0.0, "max": 0.05, "color": (0, 255, 0)},      # <5% of frame (far away)
-    "caution": {"min": 0.05, "max": 0.15, "color": (0, 255, 255)}, # 5-15% (approaching)
-    "warning": {"min": 0.15, "max": 1.0, "color": (0, 0, 255)},   # >15% (close!)
+    "safe": {"min": 0.0, "max": 0.05, "color": (0, 255, 0)},
+    "caution": {"min": 0.05, "max": 0.15, "color": (0, 255, 255)},
+    "warning": {"min": 0.15, "max": 1.0, "color": (0, 0, 255)},
 }
 
-# ============================================================================
-# PERFORMANCE OPTIMIZATION - REALTIME SETTINGS
-# ============================================================================
-FRAME_SKIP_DETECTION = 5  # More frequent detection for better responsiveness
-TRACKER_CONFIDENCE_THRESHOLD = 0.3  # Lower threshold for faster re-acquisition
+FRAME_SKIP_DETECTION = 5
+TRACKER_CONFIDENCE_THRESHOLD = 0.3
+ENABLE_FRAME_SKIP = True
+FRAME_PROCESSING_EVERY_N = 2
+MAX_PROCESSING_FPS = 15
 
-# Real-time optimization flags
-ENABLE_FRAME_SKIP = True  # Skip every Nth frame for processing
-FRAME_PROCESSING_EVERY_N = 2  # Process every 2nd frame (30fps -> 15fps vision, 30fps UI)
-MAX_PROCESSING_FPS = 15  # Cap vision processing at 15 FPS for consistent performance
-
-# ============================================================================
-# SELF-LEARNING SYSTEM CONFIGURATION
-# ============================================================================
 ENABLE_LEARNING = False
 LEARNING_DB_PATH = "assistive_learning.db"
 IMAGE_CACHE_DIR = "object_cache/"
-IMAGE_COMPRESSION_QUALITY = 50  # JPEG quality (0-100)
+IMAGE_COMPRESSION_QUALITY = 50
 MAX_CACHED_IMAGES = 1000
 
-# Room mapping grid (divide frame into NxM cells)
 LEARNING_GRID_WIDTH = 10
 LEARNING_GRID_HEIGHT = 8
 
-# Prediction thresholds
-MIN_PREDICTION_CONFIDENCE = 0.3  # Only use prediction if >30% confidence
+MIN_PREDICTION_CONFIDENCE = 0.3
 
-# ============================================================================
-# MANUAL DETECTION MODE
-# ============================================================================
-MANUAL_MODE = True  # Requires user to press 'F' to trigger detection
-AUTO_REACQUISITION_ENABLED = not MANUAL_MODE  # Auto-reacquire only if not manual
+MANUAL_MODE = True
+AUTO_REACQUISITION_ENABLED = not MANUAL_MODE
+MANUAL_FIND_KEY = "f"
 
-# Manual mode UI
-MANUAL_FIND_KEY = 'f'  # Key to trigger manual detection
+ENABLE_HRTF = False
+ENABLE_ROOM_REVERB = False
 
-# ============================================================================
-# HRTF SPATIAL AUDIO
-# ============================================================================
-ENABLE_HRTF = False  # Use advanced HRTF audio instead of basic stereo
-ENABLE_ROOM_REVERB = False  # Simple room acoustics simulation
+ROCK_5C_CAMERA_WIDTH = 640
+ROCK_5C_CAMERA_HEIGHT = 480
+ROCK_5C_SKIP_FRAMES = 2
+ROCK_5C_AUDIO_BUFFER = 512
+ROCK_5C_MIN_DETECTION_INTERVAL = 0.5
 
-# ============================================================================
-# ROCK 5C / ARM SBC OPTIMIZATION
-# ============================================================================
-# Optimizations for low-latency performance on ARM single-board computers
-
-# Camera resolution (lower = faster)
-ROCK_5C_CAMERA_WIDTH = 640  # Default: 640 (vs 1280)
-ROCK_5C_CAMERA_HEIGHT = 480  # Default: 480 (vs 720)
-
-# Frame processing
-ROCK_5C_SKIP_FRAMES = 2  # Process every Nth frame (2 = 30fps → 15fps processing)
-
-# Audio buffer (smaller = lower latency, but may cause glitches) - REALTIME OPTIMIZED
-ROCK_5C_AUDIO_BUFFER = 512  # Ultra-low latency for real-time response
-
-# Detection rate limiting
-ROCK_5C_MIN_DETECTION_INTERVAL = 0.5  # Very aggressive for real-time
-
-# Enable optimizations automatically if running on ARM
 import platform
-IS_ARM = platform.machine().startswith('aarch') or platform.machine().startswith('arm')
+
+IS_ARM = platform.machine().startswith("aarch") or platform.machine().startswith("arm")
 
 if IS_ARM:
-    print("🚀 ARM processor detected - enabling Rock 5C optimizations")
-    # Override settings for performance
+    print("ARM processor detected - enabling Rock 5C optimizations")
     AUDIO_BUFFER_SIZE = ROCK_5C_AUDIO_BUFFER
     REACQUIRE_COOLDOWN_SECONDS = ROCK_5C_MIN_DETECTION_INTERVAL
     CAMERA_WIDTH = ROCK_5C_CAMERA_WIDTH
     CAMERA_HEIGHT = ROCK_5C_CAMERA_HEIGHT
 else:
-    # For x86/desktop (i3 10th gen), optimize for lowest latency
-    AUDIO_BUFFER_SIZE = 2048  # Balanced - reduced from aggressive 1024 to prevent underflows
-    REACQUIRE_COOLDOWN_SECONDS = 0.5  # Retain previous value for x86
-    print(f"💻 x86 detected - using optimized settings (buffer={AUDIO_BUFFER_SIZE}, cooldown={REACQUIRE_COOLDOWN_SECONDS}s)")
+    AUDIO_BUFFER_SIZE = 2048
+    REACQUIRE_COOLDOWN_SECONDS = 0.5
+    print(f"x86 detected - using optimized settings (buffer={AUDIO_BUFFER_SIZE}, cooldown={REACQUIRE_COOLDOWN_SECONDS}s)")
