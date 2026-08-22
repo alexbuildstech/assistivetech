@@ -5,19 +5,17 @@ Implements persistent object memory, room layout learning, and predictive tracki
 Key Features:
 - Builds personalized spatial memory of user's environment
 - Predicts object locations based on historical data
-- Reduces API calls by 40-70% through intelligent caching
 """
 
 import sqlite3
 import os
 import time
-import threading
 import cv2
 import numpy as np
 import hashlib
 import re
 from datetime import datetime
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, Tuple, Dict
 import config
 
 class LearningModule:
@@ -35,15 +33,10 @@ class LearningModule:
         os.makedirs(self.image_cache_dir, exist_ok=True)
         
         # Initialize database with proper thread safety
-        # Use URI mode with cache for better performance
-        self.db_path_uri = f"file:{self.db_path}?cache=shared"
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False, isolation_level=None)
         self.conn.execute("PRAGMA journal_mode=WAL")  # Write-Ahead Logging for better concurrency
         self.conn.execute("PRAGMA synchronous=NORMAL")  # Balance safety and speed
         self._init_database()
-        
-        # Thread-local storage for database connections
-        self._local = threading.local()
         
         # Grid parameters for room mapping
         self.grid_width = config.LEARNING_GRID_WIDTH
@@ -373,8 +366,6 @@ class LearningModule:
             self.conn.close()
             print("[LEARNING] Learning database closed")
     
-    # === MEMORY RECALL FEATURE ===
-    
     def recall_object(self, label) -> Optional[Dict]:
         """
         Recall where an object was last seen.
@@ -405,7 +396,6 @@ class LearningModule:
         label, context, grid_x, grid_y, timestamp, confidence = result
         
         # Calculate time ago
-        from datetime import datetime
         then = datetime.fromisoformat(timestamp)
         now = datetime.now()
         delta = now - then

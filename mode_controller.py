@@ -136,10 +136,8 @@ class ModeController:
         if not detections:
             return 0
 
-        # SIMPLIFIED: Clear all existing objects and add fresh detections
-        # This removes the buggy retracking logic that caused stale bounding boxes
-        # self.object_manager.clear() # REMOVED for persistence
-
+        # Fresh detections replace existing state; the old retracking logic
+        # caused stale bounding boxes due to API latency.
         count = 0
         frame_height, frame_width = frame.shape[:2]
         current_time = time.time()
@@ -217,7 +215,6 @@ class ModeController:
 
                         if should_update_bbox:
                             existing_obj.bbox = new_bbox
-                            # print(f"🔄 Updated object #{existing_obj.id}: {label} (IoU={iou:.2f})")
 
                         # ALWAYS update metadata
                         if iou > 0.1:  # If it's likely the same object
@@ -243,29 +240,6 @@ class ModeController:
                 continue
 
         return count
-
-    def _convert_bbox(self, box_2d, frame_width=640, frame_height=480):
-        """
-        Convert normalized bounding box to pixel coordinates.
-
-        Args:
-            box_2d: [y_min, x_min, y_max, x_max] normalized 0-1000
-            frame_width, frame_height: Frame dimensions
-
-        Returns:
-            (x, y, w, h) in pixels
-        """
-        if not box_2d or len(box_2d) != 4:
-            return None
-
-        y_min, x_min, y_max, x_max = box_2d
-
-        x1 = int((x_min / 1000) * frame_width)
-        y1 = int((y_min / 1000) * frame_height)
-        x2 = int((x_max / 1000) * frame_width)
-        y2 = int((y_max / 1000) * frame_height)
-
-        return (x1, y1, x2 - x1, y2 - y1)
 
     def set_frame_dimensions(self, width, height):
         """Store frame dimensions for bbox conversion."""

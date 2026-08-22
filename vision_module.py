@@ -106,8 +106,6 @@ class VisionController:
     continuous real-time tracking with CSRT, and self-healing re-acquisition.
     """
 
-    # Pre-allocated encode buffer for JPEG encoding (much faster than PNG)
-    _encode_buffer = None
     JPEG_QUALITY = 85  # Good balance between quality and speed
 
     def __init__(self, camera_index=None):
@@ -284,7 +282,7 @@ class VisionController:
 
         try:
             bbox = self._detect_object_with_gemini(frame)
-        except:
+        except Exception:
             bbox = None
 
         if bbox:
@@ -475,5 +473,5 @@ class VisionController:
                 bbox = (max_loc[0], max_loc[1], w_templ, h_templ)
                 return True, bbox
             return False, None
-        except:
+        except Exception:
             return False, None

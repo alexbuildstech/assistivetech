@@ -8,7 +8,7 @@ The central hypothesis is that a **locally-persistent object history** can reduc
 
 ---
 
-## 🤝 Partners & Acknowledgments
+## Partners & Acknowledgments
 
 This research is made possible through the support of industry partners providing the core infrastructure for this project and Nova:
 
@@ -26,9 +26,12 @@ This research is made possible through the support of industry partners providin
 sudo apt update && sudo apt install python3 python3-pip mpv
 
 # Python libraries
-pip install google-generativeai opencv-python opencv-contrib-python \
-            sounddevice scipy groq edge-tts pydub pynput \
+pip install google-genai opencv-python opencv-contrib-python numpy \
+            sounddevice groq edge-tts psutil \
             --break-system-packages
+
+# Optional: OpenAL spatial audio backend (ENABLE_HRTF in config.py)
+pip install PyOpenAL --break-system-packages
 ```
 
 ### 2. Configure API Keys
@@ -63,7 +66,10 @@ NOVA_HEADLESS=1 python3 main_enhanced.py
 - **F**: Trigger VLM-based object detection (single frame)
 - **C**: Initiate voice command recording
 - **S**: Stop voice recording and process command
+- **D**: Describe the current scene
 - **M**: Cycle through experimental operating modes
+- **N**: Reset to exploration mode
+- **R**: Clear objects and re-acquire
 - **Q**: Quit
 
 In terminal-only headless mode, use **Ctrl+C** to exit.
@@ -91,13 +97,11 @@ This framework implements:
 
 ---
 
-## Technological Curiosity: The Origin of the Approach
+## Origin of the Approach
 
 This project originated from a technical curiosity regarding the "statelessness" of most consumer assistive vision tools. While commercial systems are excellent at identifying *what* is in front of the user *right now*, they often lack the temporal consistency required to answer questions about the past (e.g., *"Where did I put my phone two minutes ago?"*).
 
 The development process prioritized exploring the limits of low-cost hardware (SBCs) paired with high-performance cloud APIs. Early experiments focused on audio ergonomics—moving away from harsh pink noise toward adaptive, frequency-modulated "pings" that encode distance and importance. This project is an ongoing attempt to bridge the gap between real-time tracking and long-term environmental memory.
-
----
 
 ---
 
@@ -218,5 +222,3 @@ A functional prototype can be assembled for approximately **$50–$150**, signif
 ## Citation & Acknowledgments
 
 If using this framework for research, please cite it as an experimental prototype for spatial state management.
-
-*(Standard contributing, license, and contact info remains below...)*

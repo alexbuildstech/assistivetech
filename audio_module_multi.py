@@ -7,7 +7,6 @@ Optimized for real-time performance with minimal allocations.
 import numpy as np
 import threading
 import config
-from typing import List, Dict
 
 try:
     import sounddevice as sd
@@ -267,8 +266,3 @@ class MultiAudioController:
         """Clear all audio sources."""
         with self.sources_lock:
             self.sources.clear()
-
-    # Backward compatibility
-    def update_position(self, azimuth, elevation, volume):
-        """Legacy single-object interface."""
-        self.update_source(0, azimuth, volume, "phone")

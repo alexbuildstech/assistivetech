@@ -1,15 +1,11 @@
 """
 Enhanced Audio Module with OpenAL 3D Spatial Audio.
 Implements robust HRTF, distance attenuation, and Doppler effects using OpenAL.
-
-PATENT-WORTHY: True 3D spatial audio for assistive navigation.
 """
 
 import time
 import threading
 import math
-import os
-import sys
 import ctypes
 import struct
 import config
@@ -52,7 +48,6 @@ class HRTF_AudioController:
             
             # Configure Listener
             # PyOpenAL expects ctypes arrays for vector functions
-            import ctypes
             listener_pos_array = (ctypes.c_float * 3)(*self.listener_pos)
             listener_ori_array = (ctypes.c_float * 6)(*self.listener_ori)
             
@@ -82,10 +77,6 @@ class HRTF_AudioController:
             
         print("🎵 Loading audio signatures...")
         try:
-            from audio_module_multi import AudioSignatureGenerator
-            import wave
-            import struct
-            
             # We need to generate WAV data for OpenAL
             # OpenAL expects PCM data.
             
@@ -158,7 +149,6 @@ class HRTF_AudioController:
     def _play_startup_sound(self):
         """Play a quick startup tone."""
         try:
-            import ctypes
             # Generate a simple beep
             sample_rate = 44100
             duration = 0.5
@@ -187,8 +177,6 @@ class HRTF_AudioController:
             
             # Cleanup later (fire and forget for now, or wait)
             time.sleep(0.5)
-            # alDeleteSources(1, ctypes.byref(source_id))
-            # alDeleteBuffers(1, ctypes.byref(buf_id))
         except Exception:
             pass
 
@@ -202,7 +190,6 @@ class HRTF_AudioController:
         self.running = False
         if OPENAL_AVAILABLE:
             try:
-                import ctypes
                 # Stop all sources
                 for source in self.sources.values():
                     alSourceStop(source)
@@ -245,15 +232,9 @@ class HRTF_AudioController:
         """Update OpenAL sources based on tracked objects."""
         if not OPENAL_AVAILABLE:
             return
-            
-        import ctypes
 
         current_ids = set()
-        
-        # Debug: Log when we receive objects
-        # if objects and len(objects) > 0:
-        #     print(f"🔊 Audio: Processing {len(objects)} objects")
-        
+
         # 1. Update/Create Sources
         for obj in objects:
             if not obj.bbox:
@@ -361,11 +342,7 @@ class HRTF_AudioController:
                     final_gain *= 0.3 # Reduce to 30% volume
             
             alSourcef(source, AL_GAIN, final_gain)
-            
-            # Debug log for tuning (throttle this in production)
-            # if obj_id % 10 == 0:
-            #    print(f"  🔊 {obj.label}: Dist={dist:.2f}m -> Gain={final_gain:.2f} (Threat={obj.threat_score:.2f})")
-            
+
         # 2. Remove Stale Sources
         active_sources = list(self.sources.keys())
         for obj_id in active_sources:

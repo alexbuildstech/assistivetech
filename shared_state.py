@@ -82,11 +82,7 @@ class SharedGameState:
 
     def add_command(self, command):
         with self._lock:
-            if len(self._command_queue) >= 5:
-                try:
-                    self._command_queue.popleft()
-                except IndexError:
-                    pass
+            # deque(maxlen=5) silently drops the oldest command when full
             self._command_queue.append(command)
 
     def get_next_command(self):

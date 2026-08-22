@@ -66,7 +66,6 @@ class AudioCoordinator:
         """
         while self.running and self.shared_state.is_running:
             try:
-                # Get current tracking state
                 objects, status = self.shared_state.get_tracking_state()
 
                 if objects and status == "TRACKING":
@@ -101,11 +100,9 @@ class AudioCoordinator:
             current_ids.add(obj_id)
 
             # Calculate spatial audio parameters from bounding box
-            # Get frame dimensions from config
             frame_width = config.CAMERA_WIDTH
             frame_height = config.CAMERA_HEIGHT
 
-            # Calculate object center
             center_x = obj.bbox[0] + obj.bbox[2] / 2
             center_y = obj.bbox[1] + obj.bbox[3] / 2
 
@@ -168,7 +165,7 @@ class AudioCoordinator:
         # Map to signature names defined in config.AUDIO_SIGNATURES
         if "person" in label_lower or "human" in label_lower:
             return "person"
-        elif "hand" in label_lower:  # ADDED: Support for hand tracking
+        elif "hand" in label_lower:
             return "person"  # Use person signature (heartbeat) for hands
         elif "phone" in label_lower or "mobile" in label_lower:
             return "phone"

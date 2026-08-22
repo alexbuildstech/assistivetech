@@ -57,7 +57,6 @@ class VoiceController:
         self.transcription_ready = threading.Event()
 
         self.conversation_manager = ConversationManager()
-        self.listener = None
         self.recording_active = True
         self.last_key_time = 0
 

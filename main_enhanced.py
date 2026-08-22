@@ -292,7 +292,6 @@ def main():
             print("[1/7] Initializing Vision Controller...")
             vision_controller = VisionController()
 
-            # [2/7] Initializing Audio Controller
             print("\n[2/7] Initializing Audio Controller...")
             audio_controller = None
             if config.ENABLE_HRTF:
@@ -764,11 +763,7 @@ def main():
                             if voice_command_busy:
                                 print("[VOICE] Still processing previous command")
                             else:
-                                current_qa_frame = (
-                                    captured_frame_for_qa
-                                    if "captured_frame_for_qa" in locals()
-                                    else None
-                                )
+                                current_qa_frame = captured_frame_for_qa
                                 current_frame = frame.copy()
                                 voice_command_busy = True
 

@@ -327,37 +327,6 @@ class ObjectManager:
 
         return closest
 
-    def get_centered_object(self, frame_width, frame_height):
-        """
-        Get the object closest to the center of the frame.
-
-        Returns:
-            TrackedObject or None
-        """
-        if not self.objects:
-            return None
-
-        center_x = frame_width / 2
-        center_y = frame_height / 2
-
-        min_dist = float("inf")
-        centered = None
-
-        for obj in self.objects:
-            if obj.bbox:
-                obj_center_x = obj.bbox[0] + obj.bbox[2] / 2
-                obj_center_y = obj.bbox[1] + obj.bbox[3] / 2
-
-                dist = np.sqrt(
-                    (obj_center_x - center_x) ** 2 + (obj_center_y - center_y) ** 2
-                )
-
-                if dist < min_dist:
-                    min_dist = dist
-                    centered = obj
-
-        return centered
-
     def filter_by_labels(self, labels):
         """
         Keep only objects matching the given labels.
@@ -433,7 +402,6 @@ class ObjectManager:
         template = frame[y : y + h, x : x + w]
         obj.template = template
         obj.last_template_update = time.time()
-        # print(f"📸 Updated template for #{obj.id}")
 
     def compute_iou(self, box1, box2):
         """Compute Intersection over Union (IoU) between two boxes."""
