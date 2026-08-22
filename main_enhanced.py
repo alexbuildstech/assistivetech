@@ -304,10 +304,10 @@ def main():
                         hasattr(audio_controller, "is_dummy")
                         and audio_controller.is_dummy
                     ):
-                        print("⚠️ HRTF reported as dummy. Falling back to MultiAudio.")
+                        print("HRTF reported as dummy. Falling back to MultiAudio.")
                         audio_controller = None
                 except Exception as e:
-                    print(f"⚠️ Could not initialize HRTF Audio: {e}. Falling back...")
+                    print(f"Could not initialize HRTF Audio: {e}. Falling back...")
                     audio_controller = None
 
             if audio_controller is None:
@@ -325,7 +325,7 @@ def main():
                 else:
                     print("   Voice features disabled in config.")
             except Exception as e:
-                print(f"⚠️ Voice control unavailable: {e}")
+                print(f"Voice control unavailable: {e}")
                 print("   Continuing without voice features...")
                 voice_enabled = False
 
@@ -364,14 +364,14 @@ def main():
                 if config.ENABLE_HARDWARE:
                     hardware_interface = HardwareInterface()
                     if not hardware_interface.is_connected:
-                        print("⚠️ Hardware connection failed. Using dummy interface.")
+                        print("Hardware connection failed. Using dummy interface.")
                         hardware_interface.stop()
                         hardware_interface = DummyHardwareInterface()
                 else:
                     print("   Hardware disabled in config.")
                     hardware_interface = DummyHardwareInterface()
             except Exception as e:
-                print(f"⚠️ Hardware init failed: {e}")
+                print(f"Hardware init failed: {e}")
                 from hardware_interface import DummyHardwareInterface
 
                 hardware_interface = DummyHardwareInterface()
@@ -727,7 +727,7 @@ def main():
                             )
 
                     if key == ord("f") or key == ord("F"):
-                        print("⚡ Triggering detection...")
+                        print("Triggering detection...")
                         shared_state.add_command("detect")
                     elif key == ord("c") or key == ord("C"):
                         if voice_enabled and voice_controller:

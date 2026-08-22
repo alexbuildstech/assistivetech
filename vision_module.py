@@ -347,9 +347,9 @@ class VisionController:
                 self.tracker = cv2.TrackerKCF_create()
 
             self.tracker.init(frame, bbox)
-            print(f"🔄 Tracker initialized at {bbox}")
+            print(f"Tracker initialized at {bbox}")
         except Exception as e:
-            print(f"❌ Failed to init tracker: {e}")
+            print(f"Failed to init tracker: {e}")
 
     def release(self):
         """Releases the camera resource."""
@@ -456,7 +456,7 @@ class VisionController:
                 if voice_controller:
                     voice_controller.speak(answer, async_mode=True)
             except Exception as e:
-                print(f"❌ Q&A error: {e}")
+                print(f"Q&A error: {e}")
 
         threading.Thread(target=worker, daemon=True).start()
 

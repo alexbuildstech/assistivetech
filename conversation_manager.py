@@ -21,7 +21,7 @@ class ConversationManager:
                 with open(self.history_file, 'r') as f:
                     return json.load(f)
             except Exception as e:
-                print(f"⚠️ Failed to load history: {e}")
+                print(f"Failed to load history: {e}")
                 return []
         return []
     
@@ -31,7 +31,7 @@ class ConversationManager:
             with open(self.history_file, 'w') as f:
                 json.dump(self.history, f, indent=2)
         except Exception as e:
-            print(f"❌ Failed to save history: {e}")
+            print(f"Failed to save history: {e}")
             
     def add_turn(self, role, text):
         """

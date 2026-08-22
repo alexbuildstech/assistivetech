@@ -30,10 +30,10 @@ def kill_processes():
     procs = get_target_processes()
     
     if not procs:
-        print(f"✅ No existing instances of {TARGET_SCRIPT} found.")
+        print(f"No existing instances of {TARGET_SCRIPT} found.")
         return
 
-    print(f"⚠️ Found {len(procs)} running instances of {TARGET_SCRIPT}. Cleaning up...")
+    print(f"Found {len(procs)} running instances of {TARGET_SCRIPT}. Cleaning up...")
 
     # 1. Graceful Shutdown (SIGTERM)
     for proc in procs:
@@ -48,7 +48,7 @@ def kill_processes():
 
     # 2. Force Kill (SIGKILL)
     if alive:
-        print(f"⚠️ {len(alive)} processes did not exit. Force killing...")
+        print(f"{len(alive)} processes did not exit. Force killing...")
         for proc in alive:
             try:
                 print(f"   - Sending SIGKILL to PID {proc.pid}...")
@@ -59,7 +59,7 @@ def kill_processes():
         # Wait again to be sure
         psutil.wait_procs(alive, timeout=2)
 
-    print("✅ Cleanup complete.")
+    print("Cleanup complete.")
 
 if __name__ == "__main__":
     kill_processes()

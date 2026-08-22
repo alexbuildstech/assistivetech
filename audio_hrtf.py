@@ -15,7 +15,7 @@ try:
     from openal import *
     OPENAL_AVAILABLE = True
 except ImportError:
-    print("❌ PyOpenAL not installed. Falling back to dummy audio.")
+    print("PyOpenAL not installed. Falling back to dummy audio.")
     OPENAL_AVAILABLE = False
 
 class HRTF_AudioController:
@@ -36,7 +36,7 @@ class HRTF_AudioController:
         self.is_dummy = not OPENAL_AVAILABLE
         
         if not OPENAL_AVAILABLE:
-            print("⚠️ OpenAL unavailable. Audio disabled (Fallback to dummy).")
+            print("OpenAL unavailable. Audio disabled (Fallback to dummy).")
             return
 
         try:
@@ -59,7 +59,7 @@ class HRTF_AudioController:
             # or configured in alsoft.conf. We can't easily force it via simple API 
             # without AL_SOFT_HRTF extension, but we assume the system is configured.
             
-            print("🎧 OpenAL Audio System Initialized")
+            print("OpenAL Audio System Initialized")
             print(f"   Vendor: {alGetString(AL_VENDOR).decode('utf-8')}")
             print(f"   Renderer: {alGetString(AL_RENDERER).decode('utf-8')}")
             print(f"   Version: {alGetString(AL_VERSION).decode('utf-8')}")
@@ -67,7 +67,7 @@ class HRTF_AudioController:
             self._preload_buffers()
             
         except Exception as e:
-            print(f"❌ Failed to initialize OpenAL: {e}")
+            print(f"Failed to initialize OpenAL: {e}")
             OPENAL_AVAILABLE = False
 
     def _preload_buffers(self):
@@ -75,7 +75,7 @@ class HRTF_AudioController:
         if not OPENAL_AVAILABLE:
             return
             
-        print("🎵 Loading audio signatures...")
+        print("Loading audio signatures...")
         try:
             # We need to generate WAV data for OpenAL
             # OpenAL expects PCM data.
@@ -125,10 +125,10 @@ class HRTF_AudioController:
                 
                 self.buffers[obj_type] = buf
                 
-            print(f"   ✅ Loaded {len(self.buffers)} audio buffers")
+            print(f"   Loaded {len(self.buffers)} audio buffers")
             
         except Exception as e:
-            print(f"   ❌ Failed to load buffers: {e}")
+            print(f"   Failed to load buffers: {e}")
 
     def start_stream(self, shared_state=None):
         """Start the audio update loop."""
@@ -144,7 +144,7 @@ class HRTF_AudioController:
         # Start update thread
         self.update_thread = threading.Thread(target=self._update_loop, daemon=True)
         self.update_thread.start()
-        print("▶️ OpenAL audio loop started")
+        print("OpenAL audio loop started")
 
     def _play_startup_sound(self):
         """Play a quick startup tone."""
@@ -183,7 +183,7 @@ class HRTF_AudioController:
     def pause_stream(self):
         """Pause audio (stop loop)."""
         self.running = False
-        print("⏸️ OpenAL audio paused")
+        print("OpenAL audio paused")
 
     def stop_stream(self):
         """Stop audio."""
@@ -206,7 +206,7 @@ class HRTF_AudioController:
                 oalQuit()
             except Exception:
                 pass
-        print("⏹️ OpenAL audio stopped")
+        print("OpenAL audio stopped")
 
     def resume_stream(self):
         """Resume if paused (re-start loop)."""
@@ -225,7 +225,7 @@ class HRTF_AudioController:
                 time.sleep(0.05) # Update at 20Hz
                 
             except Exception as e:
-                print(f"⚠️ Audio loop error: {e}")
+                print(f"Audio loop error: {e}")
                 time.sleep(1)
 
     def _update_scene(self, objects):
@@ -311,7 +311,7 @@ class HRTF_AudioController:
                     alSourcei(source, AL_BUFFER, buf)
                     alSourcei(source, AL_LOOPING, AL_TRUE)
                     alSourcePlay(source)
-                    print(f"  🎵 Created audio source for {obj.label} (ID: {obj_id})")
+                    print(f"  Created audio source for {obj.label} (ID: {obj_id})")
                 
                 self.sources[obj_id] = source
             

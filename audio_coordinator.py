@@ -38,7 +38,7 @@ class AudioCoordinator:
         # Track which objects are currently audible
         self.active_audio_objects = set()
 
-        print("🎧 AudioCoordinator initialized")
+        print("AudioCoordinator initialized")
 
     def start(self):
         """Start the audio coordination thread."""
@@ -50,14 +50,14 @@ class AudioCoordinator:
             target=self._coordination_loop, daemon=True
         )
         self.coordinator_thread.start()
-        print("▶️ Audio coordination started")
+        print("Audio coordination started")
 
     def stop(self):
         """Stop the audio coordination thread."""
         self.running = False
         if self.coordinator_thread:
             self.coordinator_thread.join(timeout=1.0)
-        print("⏹️ Audio coordination stopped")
+        print("Audio coordination stopped")
 
     def _coordination_loop(self):
         """
@@ -80,7 +80,7 @@ class AudioCoordinator:
                 time.sleep(0.05)
 
             except Exception as e:
-                print(f"⚠️ Audio coordination error: {e}")
+                print(f"Audio coordination error: {e}")
                 time.sleep(0.1)
 
     def _update_audio_sources(self, objects):
@@ -136,7 +136,7 @@ class AudioCoordinator:
                 # New object - add to tracking
                 self.active_audio_objects.add(obj_id)
                 print(
-                    f"  🎵 Audio source added: {obj.label} (ID: {obj_id}) - {signature_name} sound"
+                    f"  Audio source added: {obj.label} (ID: {obj_id}) - {signature_name} sound"
                 )
 
             # Update the audio source position and volume
@@ -147,7 +147,7 @@ class AudioCoordinator:
         for obj_id in stale_ids:
             self.audio_controller.remove_source(obj_id)
             self.active_audio_objects.discard(obj_id)
-            print(f"  🔇 Audio source removed: ID {obj_id}")
+            print(f"  Audio source removed: ID {obj_id}")
 
     def _get_signature_name(self, label):
         """

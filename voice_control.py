@@ -296,7 +296,7 @@ class VoiceController:
         try:
             asyncio.run(self._async_speak(text, generation))
         except Exception as e:
-            print(f"❌ TTS error: {e}")
+            print(f"TTS error: {e}")
         finally:
             with self._tts_lock:
                 if self.current_tts_generation == generation:
